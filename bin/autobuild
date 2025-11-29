@@ -255,8 +255,10 @@ create_setup_iso() {
     # Copy setupfiles
     cp -r "$img_dir/setupfiles" "$SETUP_ISO_DIR/setupfiles"
 
-    # Create ISO
-    genisoimage -quiet -output "$img_dir/setup.iso" -volid "SETUP" -joliet -rock "$SETUP_ISO_DIR"/*
+    # Create ISO (use -graft-points to preserve directory structure)
+    genisoimage -quiet -output "$img_dir/setup.iso" -volid "SETUP" -joliet -rock -graft-points \
+        /setup="$SETUP_ISO_DIR/setup" \
+        /setupfiles="$SETUP_ISO_DIR/setupfiles"
 
     # Cleanup
     rm -rf "$SETUP_ISO_DIR"
