@@ -488,7 +488,7 @@ show_usage() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
-Automated build of Raspberry Pi 5 images with custom Debian rootfs
+Automated build of Raspberry Pi images with custom Debian rootfs
 
 Options:
     --image NAME        Build a specific image
@@ -618,7 +618,7 @@ fi
 # Banner
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════╗
-║         Automated Build - Raspberry Pi 5 + Debian         ║
+║         Automated Build - Raspberry Pi + Debian         ║
 ╚═══════════════════════════════════════════════════════════╝
 EOF
 

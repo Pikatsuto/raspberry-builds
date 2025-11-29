@@ -1,18 +1,18 @@
-# Raspberry Pi 5 - Hybrid Debian ARM64 Image
+# Raspberry Pi - Hybrid Debian ARM64 Image
 
 ## Project Description
 
-This project creates hybrid images for Raspberry Pi 5 combining:
-- **Raspberry Pi OS Boot/Firmware**: For complete Pi 5 hardware compatibility
+This project creates hybrid images for Raspberry Pi (ARM64) combining:
+- **Raspberry Pi OS Boot/Firmware**: For complete Raspberry Pi hardware compatibility
 - **Custom Debian ARM64 Rootfs**: For a pure Debian system
 
-The goal is to work around the limitations of the standard Debian kernel which doesn't yet support the Raspberry Pi 5's RP1 chip (responsible for Ethernet, USB, GPIO, etc.) while maintaining a complete Debian environment.
+The goal is to work around the limitations of the standard Debian kernel which doesn't yet support all Raspberry Pi hardware features while maintaining a complete Debian environment. This is especially important for Raspberry Pi which uses the RP1 chip for critical I/O.
 
 ### Why This Approach?
 
-The Raspberry Pi 5 uses the **RP1** chip to manage critical I/O peripherals. RP1 drivers are only available in the Raspberry Pi kernel and are not yet integrated into the mainline Linux kernel. This solution allows you to:
+The Raspberry Pi kernel includes drivers for all Raspberry Pi hardware (including the **RP1** chip on Pi for Ethernet, USB, GPIO). These drivers are not yet integrated into the mainline Linux kernel. This solution allows you to:
 
-✅ Keep full Pi 5 hardware support (Ethernet, WiFi, GPIO, USB)
+✅ Keep full Raspberry Pi hardware support (Ethernet, WiFi, GPIO, USB)
 ✅ Use a pure Debian rootfs with your custom configurations
 ✅ Leverage cloud-init for automatic initialization
 ✅ Develop and test in QEMU before flashing to SD card
@@ -77,7 +77,7 @@ This project supports multiple image configurations. Each image has its own fold
 6. ✓ Create hybrid Raspberry Pi image
 7. ✓ Compress with PiShrink (.xz)
 
-**Result**: A ready-to-flash `pi5-XXX.img.xz` image!
+**Result**: A ready-to-flash `rpi-XXX.img.xz` image!
 
 ### Autobuild Script Options
 
@@ -113,7 +113,7 @@ This project supports multiple image configurations. Each image has its own fold
 
 2. **Modify the configuration** (`images/my-image/config.sh`)
    ```bash
-   OUTPUT_IMAGE="pi5-my-image.img"
+   OUTPUT_IMAGE="rpi-my-image.img"
    IMAGE_SIZE="16G"
    QEMU_RAM="8G"
    QEMU_CPUS="4"
@@ -254,13 +254,13 @@ The `debian-13-arm64.raw` image now contains your customizations.
 
 ### 2. Creating the Hybrid Image for Raspberry Pi
 
-Once your Debian rootfs is configured and tested, create the final image for Raspberry Pi 5:
+Once your Debian rootfs is configured and tested, create the final image for Raspberry Pi:
 
 ```bash
 unxz 2025-11-24-raspios-trixie-arm64-lite.img.xz
 
 ./bin/merge-debian-raspios.sh \
-    -o pi5-hybrid.img \
+    -o rpi-hybrid.img \
     -s 8G \
     2025-11-24-raspios-trixie-arm64-lite.img \
     debian-13-backports-genericcloud-arm64-daily.raw
@@ -309,12 +309,12 @@ sudo mv pishrink.sh /usr/local/bin/
 
 ```bash
 # Shrink the image (removes empty space)
-sudo pishrink.sh pi5-hybrid.img
+sudo pishrink.sh rpi-hybrid.img
 
 # Shrink and compress to .xz in one step
-sudo pishrink.sh -Z pi5-hybrid.img
+sudo pishrink.sh -Z rpi-hybrid.img
 
-# Result: pi5-hybrid.img.xz (much smaller)
+# Result: rpi-hybrid.img.xz (much smaller)
 ```
 
 #### Useful PiShrink Options
@@ -330,7 +330,7 @@ sudo pishrink.sh -Z pi5-hybrid.img
 #### With uncompressed image
 
 ```bash
-sudo dd if=pi5-hybrid.img of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=rpi-hybrid.img of=/dev/sdX bs=4M status=progress conv=fsync
 sync
 ```
 
@@ -338,7 +338,7 @@ sync
 
 ```bash
 # Decompress and flash in one command
-xz -dc pi5-hybrid.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+xz -dc rpi-hybrid.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
 sync
 ```
 
@@ -374,20 +374,20 @@ qemu-system-aarch64 -M virt -cpu cortex-a72 -m 8G -smp 4 \
 # 2. Customize via SSH
 ssh -p 2222 pi@localhost
 
-# 3. Create hybrid Pi 5 image
+# 3. Create hybrid Raspberry Pi image
 ./bin/merge-debian-raspios.sh \
-    -o pi5-custom.img -s 8G \
+    -o rpi-custom.img -s 8G \
     2025-11-24-raspios-trixie-arm64-lite.img \
     debian-13-arm64.raw
 
 # 4. Shrink and compress
-sudo pishrink.sh -z pi5-custom.img
+sudo pishrink.sh -z rpi-custom.img
 
 # 5. Flash to SD
-xz -dc pi5-custom.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+xz -dc rpi-custom.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
 sync
 
-# 6. Insert SD into Pi 5 and boot!
+# 6. Insert SD into Raspberry Pi and boot!
 ```
 
 ## Project Structure
@@ -411,13 +411,13 @@ rpi-dev/
 ├── debian-13-backports-genericcloud-arm64-daily.raw  # Debian image (downloaded)
 ├── debian-13-arm64.raw                # Working copy of Debian image
 ├── setup.iso                          # ISO containing setup + setupfiles (generated)
-├── pi5-*.img                          # Final hybrid images (generated)
-├── pi5-*.img.xz                       # Compressed ready-to-flash images (generated)
+├── rpi-*.img                          # Final hybrid images (generated)
+├── rpi-*.img.xz                       # Compressed ready-to-flash images (generated)
 ├── CLAUDE.md                          # Technical documentation for Claude Code
 └── README.md                          # This file
 ```
 
-## Supported Features on Pi 5
+## Supported Features on Raspberry Pi
 
 With this approach, you get:
 
@@ -443,13 +443,13 @@ ls /usr/share/edk2/aarch64/QEMU_CODE.fd
 sudo apt install qemu-efi-aarch64
 ```
 
-### Pi 5 Image Won't Boot
+### Raspberry Pi Image Won't Boot
 
 - Verify you **did not** use the `--keep-kernel` option
 - The RaspiOS kernel is **required** for RP1 support
 - Verify the SD card was properly flashed with `sync`
 
-### No Network Connection on Pi 5
+### No Network Connection on Raspberry Pi
 
 - If you used `--keep-kernel`, the RP1 drivers are not loaded
 - Recreate the image **without** `--keep-kernel`
@@ -473,10 +473,10 @@ Instead of building yourself, download images from [Releases](../../releases):
 
 ```bash
 # Download from release (example)
-wget https://github.com/YOUR_USERNAME/rpi-dev/releases/download/v2025-01-15/pi5-exemple.img.xz
+wget https://github.com/YOUR_USERNAME/rpi-dev/releases/download/v2025-01-15/rpi-exemple.img.xz
 
 # Flash
-xz -dc pi5-exemple.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+xz -dc rpi-exemple.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
 sync
 ```
 

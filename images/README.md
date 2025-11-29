@@ -27,7 +27,7 @@ images/
 
 2. **Modify the configuration** (`images/my-image/config.sh`)
    ```bash
-   OUTPUT_IMAGE="pi5-my-image.img"
+   OUTPUT_IMAGE="rpi-my-image.img"
    IMAGE_SIZE="16G"
    QEMU_RAM="8G"
    QEMU_CPUS="4"

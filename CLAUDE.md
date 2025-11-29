@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains tooling for creating hybrid Raspberry Pi images that combine Raspberry Pi OS boot/firmware with custom Debian ARM64 root filesystems. The primary use case is running Debian on Raspberry Pi 5 hardware while maintaining full hardware support (RP1 chip drivers for Ethernet, GPIO, USB, etc.).
+This repository contains tooling for creating hybrid Raspberry Pi images that combine Raspberry Pi OS boot/firmware with custom Debian ARM64 root filesystems. The primary use case is running Debian on Raspberry Pi hardware (ARM64) while maintaining full hardware support. This is especially important for Raspberry Pi which uses the RP1 chip for critical I/O (Ethernet, GPIO, USB, etc.).
 
 ## Architecture
 
 The project uses a partition-level merge approach:
 
-1. **Boot partition (FAT32)**: Retained from Raspberry Pi OS to ensure Pi 5 firmware compatibility
+1. **Boot partition (FAT32)**: Retained from Raspberry Pi OS to ensure Raspberry Pi firmware compatibility
 2. **Root partition (ext4)**: Replaced with custom Debian ARM64 rootfs
 3. **Critical components preserved from RaspiOS**:
    - `/boot/firmware` - Pi bootloader and config files
@@ -114,7 +114,7 @@ Examples:
 ./bin/merge-debian-raspios.sh 2025-11-24-raspios-trixie-arm64-lite.img debian-13-backports-genericcloud-arm64-daily.raw
 
 # Custom output and size
-./bin/merge-debian-raspios.sh -o pi5-custom.img -s 16G raspios-lite.img debian.raw
+./bin/merge-debian-raspios.sh -o rpi-custom.img -s 16G raspios-lite.img debian.raw
 ```
 
 ### Flashing to SD Card/SSD
@@ -149,7 +149,7 @@ genisoimage -output images/<name>/cloudinit/seed.img -volid cidata -joliet -rock
 
 ### Why RaspiOS Kernel is Required
 
-Raspberry Pi 5 uses the RP1 southbridge chip for critical I/O (Ethernet, USB, GPIO). The RP1 drivers are only available in the Raspberry Pi kernel tree and are not yet upstream in mainline Linux. Using the Debian kernel (`--keep-kernel`) will result in:
+The Raspberry Pi kernel includes drivers for all Raspberry Pi hardware. For Raspberry Pi, this includes the RP1 southbridge chip for critical I/O (Ethernet, USB, GPIO). These drivers are not yet upstream in mainline Linux. Using the Debian kernel (`--keep-kernel`) will result in:
 - No Ethernet connectivity
 - Limited USB functionality
 - No GPIO access

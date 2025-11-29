@@ -161,7 +161,7 @@ jobs:
         with:
           name: hybrid-image-${{ matrix.image }}
           path: |
-            pi5-*.img
+            rpi-*.img
           retention-days: 1
           compression-level: 0
 
@@ -190,7 +190,7 @@ jobs:
       - name: Stage 4 - Compress image for ${{ matrix.image }}
         run: |
           # Find the .img file for this image
-          IMAGE_FILE=$(ls pi5-*.img)
+          IMAGE_FILE=$(ls rpi-*.img)
           echo "Compressing $IMAGE_FILE"
 
           # Compress with PiShrink
@@ -201,7 +201,7 @@ jobs:
         with:
           name: final-image-${{ matrix.image }}
           path: |
-            pi5-*.img.xz
+            rpi-*.img.xz
           retention-days: 7
 
   # Job 6: Create Release
@@ -252,9 +252,9 @@ jobs:
         run: |
           # Create release body
           cat > release_body.md << 'EOF'
-          ## 🚀 Raspberry Pi 5 Hybrid Images - ${{ steps.release_info.outputs.date }}
+          ## 🚀 Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
 
-          Raspberry Pi 5 images with RaspiOS boot + Debian ARM64 rootfs.
+          Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
 
           ### 📦 Available Images
 
@@ -264,7 +264,7 @@ jobs:
 
           ```bash
           # Decompress and flash
-          xz -dc pi5-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+          xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
           sync
           ```
 

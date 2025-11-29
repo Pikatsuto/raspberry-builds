@@ -2,7 +2,7 @@
 # Configuration for "exemple" image
 
 # Output image name
-OUTPUT_IMAGE="pi5-exemple.img"
+OUTPUT_IMAGE="rpi-exemple.img"
 
 # Final image size
 IMAGE_SIZE="8G"
