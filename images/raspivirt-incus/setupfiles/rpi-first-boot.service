@@ -1,0 +1,14 @@
+[Unit]
+Description=Raspberry Pi First Boot Configuration
+After=local-fs.target
+Before=network-pre.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rpi-first-boot.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
