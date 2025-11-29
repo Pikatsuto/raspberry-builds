@@ -5,7 +5,7 @@
 OUTPUT_IMAGE="rpi-raspivirt-incus.img"
 
 # Final image size
-IMAGE_SIZE="16G"
+IMAGE_SIZE="6G"
 
 # RAM and CPU for QEMU
 QEMU_RAM="8G"
