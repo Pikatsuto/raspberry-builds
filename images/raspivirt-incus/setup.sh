@@ -43,10 +43,18 @@ apt-get install -y \
 # Add Incus repository (Zabbly - official Incus repository)
 echo "[4/8] Adding Incus repository..."
 mkdir -p /etc/apt/keyrings/
-curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --dearmor -o /etc/apt/keyrings/zabbly.gpg
-cat > /etc/apt/sources.list.d/zabbly-incus-stable.list << 'EOF'
-deb [signed-by=/etc/apt/keyrings/zabbly.gpg] https://pkgs.zabbly.com/incus/stable $(lsb_release -sc) main
-EOF
+curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --show-keys --fingerprint
+curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc
+sh -c 'cat <<EOF > /etc/apt/sources.list.d/zabbly-incus-stable.sources
+Enabled: yes
+Types: deb
+URIs: https://pkgs.zabbly.com/incus/stable
+Suites: $(. /etc/os-release && echo ${VERSION_CODENAME})
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/zabbly.asc
+
+EOF'
 
 # Install Incus and Incus UI (includes LXC fork)
 echo "[5/8] Installing Incus and Incus UI..."
