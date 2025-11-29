@@ -331,7 +331,7 @@ compress_image() {
     echo_step "Compressing image with PiShrink..."
 
     # PiShrink requires sudo
-    sudo rm "$OUTPUT_IMAGE.xz"
+    sudo rm -f "$OUTPUT_IMAGE.xz"
     sudo pishrink.sh -aZ "$OUTPUT_IMAGE"
 
     COMPRESSED="${OUTPUT_IMAGE}.xz"
