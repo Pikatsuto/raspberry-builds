@@ -112,33 +112,68 @@ load_image_config() {
     [ -n "$DESCRIPTION" ] && echo "  Description: $DESCRIPTION"
 }
 
-# Check dependencies
+# Check dependencies based on stage
 check_dependencies() {
-    echo_step "Checking dependencies..."
+    local stage="$1"
+    echo_step "Checking dependencies for stage $stage..."
     local missing=()
+    local required_cmds=()
 
-    for cmd in wget qemu-system-aarch64 genisoimage parted e2fsck resize2fs losetup; do
+    # Determine required commands based on stage
+    case "$stage" in
+        "1")
+            # Stage 1: Download and prepare
+            required_cmds=(wget genisoimage)
+            ;;
+        "2")
+            # Stage 2: QEMU setup
+            required_cmds=(qemu-system-aarch64)
+            ;;
+        "3")
+            # Stage 3: Build hybrid image
+            required_cmds=(parted e2fsck resize2fs losetup rsync)
+            ;;
+        "4")
+            # Stage 4: Compress
+            # PiShrink will be checked separately
+            ;;
+        "all")
+            # All stages: check all dependencies
+            required_cmds=(wget qemu-system-aarch64 genisoimage parted e2fsck resize2fs losetup rsync)
+            ;;
+    esac
+
+    # Check required commands
+    for cmd in "${required_cmds[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             missing+=($cmd)
         fi
     done
 
     if [ ${#missing[@]} -ne 0 ]; then
-        echo_error "Missing dependencies: ${missing[*]}"
-        echo "Install with: sudo apt install -y qemu-system-aarch64 qemu-utils qemu-efi-aarch64 parted e2fsprogs dosfstools rsync xz-utils genisoimage wget"
+        echo_error "Missing dependencies for stage $stage: ${missing[*]}"
+        echo ""
+        echo "Install commands by stage:"
+        echo "  Stage 1: sudo apt install -y wget genisoimage xz-utils"
+        echo "  Stage 2: sudo apt install -y qemu-system-aarch64 qemu-utils qemu-efi-aarch64"
+        echo "  Stage 3: sudo apt install -y parted e2fsprogs rsync qemu-utils"
+        echo "  Stage 4: (PiShrink auto-installed if needed)"
+        echo "  All:     sudo apt install -y wget qemu-system-aarch64 qemu-utils qemu-efi-aarch64 parted e2fsprogs dosfstools rsync xz-utils genisoimage"
         exit 1
     fi
 
-    # Check PiShrink
-    if ! command -v pishrink.sh &> /dev/null; then
-        echo_warn "PiShrink not found. Installing..."
-        wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh -O /tmp/pishrink.sh
-        chmod +x /tmp/pishrink.sh
-        sudo mv /tmp/pishrink.sh /usr/local/bin/
-        echo_success "PiShrink installed"
+    # Check PiShrink for stage 4 or all
+    if [ "$stage" = "4" ] || [ "$stage" = "all" ]; then
+        if ! command -v pishrink.sh &> /dev/null; then
+            echo_warn "PiShrink not found. Installing..."
+            wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh -O /tmp/pishrink.sh
+            chmod +x /tmp/pishrink.sh
+            sudo mv /tmp/pishrink.sh /usr/local/bin/
+            echo_success "PiShrink installed"
+        fi
     fi
 
-    echo_success "All dependencies are installed"
+    echo_success "All required dependencies for stage $stage are installed"
 }
 
 # Download base images
@@ -590,7 +625,7 @@ EOF
 echo ""
 
 # Execute workflow
-check_dependencies
+check_dependencies "$STAGE"
 
 if [ "$BUILD_ALL_IMAGES" = true ]; then
     build_all_images
