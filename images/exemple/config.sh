@@ -1,15 +1,15 @@
 #!/bin/bash
-# Configuration de l'image "exemple"
+# Configuration for "exemple" image
 
-# Nom de l'image de sortie
+# Output image name
 OUTPUT_IMAGE="pi5-exemple.img"
 
-# Taille de l'image finale
+# Final image size
 IMAGE_SIZE="8G"
 
-# RAM et CPU pour QEMU
+# RAM and CPU for QEMU
 QEMU_RAM="8G"
 QEMU_CPUS="4"
 
 # Description
-DESCRIPTION="Image d'exemple avec configuration de base"
+DESCRIPTION="Example image with basic configuration"

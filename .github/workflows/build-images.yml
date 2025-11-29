@@ -14,14 +14,29 @@ env:
   DEBIAN_FRONTEND: noninteractive
 
 jobs:
-  build-images:
+  # Job 1: Detect available images
+  detect-images:
     runs-on: ubuntu-latest
-    # Note: This workflow requires privileges for loop devices
-    # For production environment, use a self-hosted runner
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-    permissions:
-      contents: write
+      - name: List available images
+        id: list
+        run: |
+          images=$(ls -d images/*/ | xargs -n 1 basename | jq -R -s -c 'split("\n")[:-1]')
+          echo "images=$images" >> $GITHUB_OUTPUT
+          echo "Detected images: $images"
 
+  # Job 2: Stage 1 - Download and Prepare (parallel for all images)
+  stage1-download:
+    needs: detect-images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect-images.outputs.images) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -40,21 +55,84 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            wget \
+            genisoimage \
+            xz-utils
+
+      - name: Stage 1 - Download and prepare for ${{ matrix.image }}
+        run: |
+          ./bin/autobuild --image ${{ matrix.image }} --stage 1
+
+      - name: Upload base images (cache)
+        uses: actions/upload-artifact@v5
+        with:
+          name: base-images-${{ matrix.image }}
+          path: |
+            *.img
+            *.raw
+            images/${{ matrix.image }}/cloudinit/seed.img
+            images/${{ matrix.image }}/setup.iso
+          retention-days: 1
+
+  # Job 3: Stage 2 - QEMU Setup (parallel for all images, most time-consuming)
+  stage2-qemu:
+    needs: [detect-images, stage1-download]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect-images.outputs.images) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install QEMU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
             qemu-system-aarch64 \
             qemu-utils \
-            qemu-efi-aarch64 \
+            qemu-efi-aarch64
+
+      - name: Download base images from stage 1
+        uses: actions/download-artifact@v5
+        with:
+          name: base-images-${{ matrix.image }}
+
+      - name: Stage 2 - QEMU setup for ${{ matrix.image }}
+        run: |
+          ./bin/autobuild --image ${{ matrix.image }} --stage 2
+        timeout-minutes: 60
+
+      - name: Upload Debian image after QEMU
+        uses: actions/upload-artifact@v5
+        with:
+          name: debian-configured-${{ matrix.image }}
+          path: |
+            debian-13-arm64.raw
+          retention-days: 1
+          compression-level: 0
+
+  # Job 4: Stage 3 - Build hybrid image (parallel for all images)
+  stage3-build:
+    needs: [detect-images, stage2-qemu]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect-images.outputs.images) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
             parted \
             e2fsprogs \
             dosfstools \
             rsync \
-            xz-utils \
-            genisoimage \
-            wget
-
-          # Install PiShrink
-          wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
-          chmod +x pishrink.sh
-          sudo mv pishrink.sh /usr/local/bin/
+            qemu-utils
 
       - name: Enable loop devices
         run: |
@@ -63,18 +141,89 @@ jobs:
           # Check available loop devices
           ls -la /dev/loop* || true
 
-      - name: Build all images
+      - name: Download RaspiOS image from stage 1
+        uses: actions/download-artifact@v5
+        with:
+          name: base-images-${{ matrix.image }}
+          pattern: '*.img'
+
+      - name: Download configured Debian image from stage 2
+        uses: actions/download-artifact@v5
+        with:
+          name: debian-configured-${{ matrix.image }}
+
+      - name: Stage 3 - Build hybrid image for ${{ matrix.image }}
         run: |
-          set -e
-          ./bin/autobuild --all-images
-        env:
-          DEBIAN_FRONTEND: noninteractive
+          ./bin/autobuild --image ${{ matrix.image }} --stage 3
+
+      - name: Upload hybrid image
+        uses: actions/upload-artifact@v5
+        with:
+          name: hybrid-image-${{ matrix.image }}
+          path: |
+            pi5-*.img
+          retention-days: 1
+          compression-level: 0
+
+  # Job 5: Stage 4 - Compress (parallel for all images)
+  stage4-compress:
+    needs: [detect-images, stage3-build]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect-images.outputs.images) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install PiShrink
+        run: |
+          wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
+          chmod +x pishrink.sh
+          sudo mv pishrink.sh /usr/local/bin/
+
+      - name: Download hybrid image from stage 3
+        uses: actions/download-artifact@v5
+        with:
+          name: hybrid-image-${{ matrix.image }}
+
+      - name: Stage 4 - Compress image for ${{ matrix.image }}
+        run: |
+          # Find the .img file for this image
+          IMAGE_FILE=$(ls pi5-*.img)
+          echo "Compressing $IMAGE_FILE"
+
+          # Compress with PiShrink
+          sudo pishrink.sh -aZ "$IMAGE_FILE"
+
+      - name: Upload compressed image
+        uses: actions/upload-artifact@v5
+        with:
+          name: final-image-${{ matrix.image }}
+          path: |
+            pi5-*.img.xz
+          retention-days: 7
+
+  # Job 6: Create Release
+  create-release:
+    needs: [detect-images, stage4-compress]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download all compressed images
+        uses: actions/download-artifact@v5
+        with:
+          pattern: final-image-*
+          merge-multiple: true
 
       - name: List built images
         run: |
           echo "Created images:"
           ls -lh *.img.xz || true
-          ls -lh *.img || true
 
       - name: Generate release name
         id: release_info
@@ -146,19 +295,7 @@ jobs:
             *.img.xz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload build artifacts (fallback)
-        if: failure()
-        uses: actions/upload-artifact@v5
-        with:
-          name: failed-build-images
-          path: |
-            *.img
-            *.img.xz
-            *.log
-          retention-days: 7
-          if-no-files-found: ignore
-
+          
       - name: Cleanup
         if: always()
         run: |

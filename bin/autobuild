@@ -29,6 +29,7 @@ DESCRIPTION=""
 # Control variables
 CURRENT_IMAGE=""
 BUILD_ALL_IMAGES=false
+STAGE="all"
 
 # Colors for display
 GREEN='\033[0;32m'
@@ -311,55 +312,83 @@ compress_image() {
     fi
 }
 
-# Build a single image
+# Build a single image (with stage support)
 build_image() {
     local img_name="$1"
 
     echo ""
     cat << EOF
 ╔═══════════════════════════════════════════════════════════╗
-║              Building image: $img_name
+║              Building image: $img_name (Stage: $STAGE)
 ╚═══════════════════════════════════════════════════════════╝
 EOF
     echo ""
 
     load_image_config "$img_name"
 
-    if [ "$SKIP_DOWNLOAD" = false ]; then
-        download_images "$img_name"
-    else
-        echo_warn "Skipping base images download"
+    # Stage 1: Download + Create setup.iso
+    if [ "$STAGE" = "all" ] || [ "$STAGE" = "1" ]; then
+        echo_step "=== STAGE 1: Download and Prepare ==="
+        if [ "$SKIP_DOWNLOAD" = false ]; then
+            download_images "$img_name"
+        else
+            echo_warn "Skipping base images download"
+        fi
+        create_setup_iso "$img_name"
     fi
 
-    create_setup_iso "$img_name"
-
-    if [ "$SKIP_QEMU" = false ]; then
-        run_qemu_setup "$img_name"
-    else
-        echo_warn "Skipping QEMU - using existing Debian image"
+    # Stage 2: QEMU Setup
+    if [ "$STAGE" = "all" ] || [ "$STAGE" = "2" ]; then
+        echo_step "=== STAGE 2: QEMU Setup ==="
+        if [ "$SKIP_QEMU" = false ]; then
+            run_qemu_setup "$img_name"
+        else
+            echo_warn "Skipping QEMU - using existing Debian image"
+        fi
     fi
 
-    build_rpi_image
+    # Stage 3: Build RPi image
+    if [ "$STAGE" = "all" ] || [ "$STAGE" = "3" ]; then
+        echo_step "=== STAGE 3: Build Raspberry Pi Image ==="
+        build_rpi_image
+    fi
 
-    if [ "$SKIP_COMPRESS" = false ]; then
-        compress_image
-    else
-        echo_warn "Skipping PiShrink compression"
+    # Stage 4: Compress
+    if [ "$STAGE" = "all" ] || [ "$STAGE" = "4" ]; then
+        echo_step "=== STAGE 4: Compress ==="
+        if [ "$SKIP_COMPRESS" = false ]; then
+            compress_image
+        else
+            echo_warn "Skipping PiShrink compression"
+        fi
     fi
 
     # Summary
     echo ""
-    cat << EOF
+    if [ "$STAGE" = "all" ]; then
+        cat << EOF
 ╔═══════════════════════════════════════════════════════════╗
 ║           BUILD COMPLETED: $img_name ✓
 ╚═══════════════════════════════════════════════════════════╝
 EOF
+    else
+        cat << EOF
+╔═══════════════════════════════════════════════════════════╗
+║           STAGE $STAGE COMPLETED: $img_name ✓
+╚═══════════════════════════════════════════════════════════╝
+EOF
+    fi
 
     echo ""
-    echo_success "Final image:"
-    if [ "$SKIP_COMPRESS" = false ]; then
-        echo "  📦 ${OUTPUT_IMAGE}.xz"
-    else
+    if [ "$STAGE" = "all" ] || [ "$STAGE" = "4" ]; then
+        echo_success "Final image:"
+        if [ "$SKIP_COMPRESS" = false ]; then
+            echo "  📦 ${OUTPUT_IMAGE}.xz"
+        else
+            echo "  📦 ${OUTPUT_IMAGE}"
+        fi
+    elif [ "$STAGE" = "3" ]; then
+        echo_success "Uncompressed image:"
         echo "  📦 ${OUTPUT_IMAGE}"
     fi
     echo ""
@@ -430,6 +459,7 @@ Options:
     --image NAME        Build a specific image
     --all-images        Build all available images
     --list-images       List available images
+    --stage STAGE       Run specific stage (1, 2, 3, 4, or all; default: all)
 
     --skip-download     Don't download base images
     --skip-qemu         Don't launch QEMU (use existing Debian image)
@@ -437,15 +467,31 @@ Options:
 
     --help              Display this help
 
+Build Stages:
+    Stage 1: Download base images + Create setup.iso
+    Stage 2: Run QEMU setup (installs packages, configures system)
+    Stage 3: Build hybrid Raspberry Pi image (merge RaspiOS + Debian)
+    Stage 4: Compress with PiShrink
+
 Examples:
     # List available images
     $0 --list-images
 
-    # Build a specific image
+    # Build a specific image (all stages)
     $0 --image exemple
 
     # Build all images
     $0 --all-images
+
+    # Build only stage 1 (download and prepare)
+    $0 --image exemple --stage 1
+
+    # Build only stage 2 (QEMU setup) - requires stage 1 completed
+    $0 --image exemple --stage 2
+
+    # Build stages 3+4 (merge + compress) - requires stages 1-2 completed
+    $0 --image exemple --stage 3
+    $0 --image exemple --stage 4
 
     # Build an image without downloading base images
     $0 --image exemple --skip-download
@@ -457,7 +503,11 @@ Image structure:
     images/image-name/
     ├── config.sh       # Configuration (size, RAM, etc.)
     ├── setup.sh        # Script executed in QEMU
-    └── setupfiles/     # Files copied to the image
+    ├── setupfiles/     # Files copied to the image
+    └── cloudinit/      # Cloud-init configuration
+        ├── user-data
+        ├── meta-data
+        └── seed.img    # Generated automatically
 
 To create a new image:
     cp -r images/exemple images/my-image
@@ -487,6 +537,14 @@ while [[ $# -gt 0 ]]; do
         --list-images)
             list_images
             exit 0
+            ;;
+        --stage)
+            STAGE="$2"
+            if [[ ! "$STAGE" =~ ^(1|2|3|4|all)$ ]]; then
+                echo_error "Invalid stage: $STAGE (must be 1, 2, 3, 4, or all)"
+                exit 1
+            fi
+            shift 2
             ;;
         --skip-download)
             SKIP_DOWNLOAD=true
