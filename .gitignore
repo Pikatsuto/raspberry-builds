@@ -1,0 +1,30 @@
+# Large images
+*.img
+*.img.xz
+*.raw
+*.qcow2
+*.iso
+
+# Except seed.img which is small
+!cloudinit/seed.img
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Logs
+*.log
+
+# GitHub Actions
+release_body.md
+
+# Keep images/ folder structure
+!images/*/
+!images/*/*.sh
+!images/*/setupfiles/
+!images/*/cloudinit/
+!images/*/cloudinit/user-data
+!images/*/cloudinit/meta-data
+# But ignore seed.img (automatically generated)
+images/*/cloudinit/seed.img

@@ -1,0 +1,167 @@
+name: Build Raspberry Pi Images
+
+on:
+  push:
+    branches:
+      - '**'
+  schedule:
+    # Daily build at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allows manual trigger
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    # Note: This workflow requires privileges for loop devices
+    # For production environment, use a self-hosted runner
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          # Free up disk space for large images
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            qemu-system-aarch64 \
+            qemu-utils \
+            qemu-efi-aarch64 \
+            parted \
+            e2fsprogs \
+            dosfstools \
+            rsync \
+            xz-utils \
+            genisoimage \
+            wget
+
+          # Install PiShrink
+          wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
+          chmod +x pishrink.sh
+          sudo mv pishrink.sh /usr/local/bin/
+
+      - name: Enable loop devices
+        run: |
+          # Load loop module
+          sudo modprobe loop
+          # Check available loop devices
+          ls -la /dev/loop* || true
+
+      - name: Build all images
+        run: |
+          set -e
+          ./bin/autobuild --all-images
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      - name: List built images
+        run: |
+          echo "Created images:"
+          ls -lh *.img.xz || true
+          ls -lh *.img || true
+
+      - name: Generate release name
+        id: release_info
+        run: |
+          # Release name based on date
+          RELEASE_DATE=$(date +'%Y-%m-%d')
+          RELEASE_TIME=$(date +'%H%M')
+          RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
+          RELEASE_NAME="Build ${RELEASE_DATE} ${RELEASE_TIME}"
+
+          # Determine if it's a pre-release
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            IS_PRERELEASE="false"
+            RELEASE_NAME="Release ${RELEASE_DATE}"
+          else
+            IS_PRERELEASE="true"
+            RELEASE_NAME="Pre-release ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+          fi
+
+          echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          echo "name=${RELEASE_NAME}" >> $GITHUB_OUTPUT
+          echo "prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Create Release and Upload Assets
+        run: |
+          # Create release body
+          cat > release_body.md << 'EOF'
+          ## 🚀 Raspberry Pi 5 Hybrid Images - ${{ steps.release_info.outputs.date }}
+
+          Raspberry Pi 5 images with RaspiOS boot + Debian ARM64 rootfs.
+
+          ### 📦 Available Images
+
+          All images in this release are ready to flash to SD/SSD.
+
+          ### 📝 Flash an Image
+
+          ```bash
+          # Decompress and flash
+          xz -dc pi5-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+          sync
+          ```
+
+          **⚠️ Replace `/dev/sdX` with your device!**
+
+          ### 🔧 Build Info
+
+          - **Branch** : `${{ github.ref_name }}`
+          - **Commit** : `${{ github.sha }}`
+          - **Date** : `${{ steps.release_info.outputs.date }}`
+          - **Workflow** : [Build #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ### 📚 Documentation
+
+          See [README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md) for more information.
+          EOF
+
+          # Create release with .img.xz files
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.release_info.outputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create ${{ steps.release_info.outputs.tag }} \
+            --title "${{ steps.release_info.outputs.name }}" \
+            --notes-file release_body.md \
+            $PRERELEASE_FLAG \
+            *.img.xz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts (fallback)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-build-images
+          path: |
+            *.img
+            *.img.xz
+            *.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Clean up large files
+          sudo rm -f *.img *.img.xz *.raw *.iso
+          df -h
