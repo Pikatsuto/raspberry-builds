@@ -120,8 +120,8 @@ setup_qemu_arm64() {
     # Install qemu-user-static on host if not present
     if ! command -v qemu-aarch64-static &> /dev/null; then
         echo "    Installing qemu-user-static on host system..."
-        sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends qemu-user-static binfmt-support
+        sudo apt update -qq
+        sudo apt install -y --no-install-recommends qemu-user-static binfmt-support
     fi
 
     # Copy qemu-aarch64-static into chroot
@@ -151,8 +151,8 @@ setup_raspi_repos() {
     # Add RaspiOS repository key
     sudo chroot "$CHROOT_DIR" /bin/bash -c "
         mkdir -p /etc/apt/keyrings
-        apt-get update
-        apt-get install -y --no-install-recommends curl gnupg
+        apt update
+        apt install -y --no-install-recommends curl gnupg
         curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --dearmor -o /etc/apt/keyrings/raspberrypi.gpg
     "
 
@@ -194,8 +194,8 @@ install_raspi_packages() {
     # Install RaspiOS packages
     sudo chroot "$CHROOT_DIR" /bin/bash -c "
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y --no-install-recommends \
+        apt update
+        apt install -y --no-install-recommends \
             raspberrypi-kernel \
             raspberrypi-bootloader \
             libraspberrypi0 \
@@ -216,7 +216,7 @@ cleanup_raspi_repos() {
 
     # Clean APT cache
     sudo chroot "$CHROOT_DIR" /bin/bash -c "
-        apt-get clean
+        apt clean
         rm -rf /var/lib/apt/lists/*
     " 2>/dev/null || true
 }

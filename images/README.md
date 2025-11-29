@@ -73,7 +73,7 @@ cp -r images/exemple images/docker
 Modify `images/docker/setup.sh`:
 ```bash
 # Add Docker
-apt-get install -y docker.io docker-compose
+apt install -y docker.io docker-compose
 systemctl enable docker
 usermod -aG docker pi
 ```
@@ -91,7 +91,7 @@ cp -r images/exemple images/webserver
 Modify `images/webserver/setup.sh`:
 ```bash
 # Install Nginx
-apt-get install -y nginx php-fpm mariadb-server
+apt install -y nginx php-fpm mariadb-server
 systemctl enable nginx mariadb
 ```
 

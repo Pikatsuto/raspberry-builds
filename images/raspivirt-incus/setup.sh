@@ -13,12 +13,12 @@ echo "======================================"
 # System update
 echo "[1/8] Updating system..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get upgrade -y
+apt update
+apt upgrade -y
 
 # Install essential packages
 echo "[2/8] Installing essential packages..."
-apt-get install -y \
+apt install -y \
     curl \
     wget \
     sudo \
@@ -35,7 +35,7 @@ apt-get install -y \
 
 # Install KVM for hardware virtualization (without GUI dependencies)
 echo "[3/8] Installing KVM..."
-apt-get install -y --no-install-recommends \
+apt install -y --no-install-recommends \
     qemu-system-aarch64 \
     qemu-kvm \
     qemu-utils \
@@ -73,8 +73,8 @@ fi
 
 # Install Incus and Incus UI (includes LXC fork)
 echo "[5/8] Installing Incus and Incus UI..."
-apt-get update
-apt-get install -y --no-install-recommends \
+apt update
+apt install -y --no-install-recommends \
     incus \
     incus-ui-canonical
 
@@ -82,8 +82,8 @@ apt-get install -y --no-install-recommends \
 echo "[6/8] Configuring bridge network br-wan..."
 
 # Remove NetworkManager if present (we use systemd-networkd)
-apt-get purge -y network-manager 2>/dev/null || true
-apt-get autoremove -y
+apt purge -y network-manager 2>/dev/null || true
+apt autoremove -y
 
 # Remove cloud-init netplan configs that might conflict
 rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
@@ -141,8 +141,8 @@ incus profile device add default eth0 nic \
 
 # Cleanup
 echo "Cleaning up..."
-apt-get autoremove -y
-apt-get clean
+apt autoremove -y
+apt clean
 rm -rf /var/lib/apt/lists/*
 
 # Create flag file to indicate setup is complete
