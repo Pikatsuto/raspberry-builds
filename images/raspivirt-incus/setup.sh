@@ -63,7 +63,8 @@ if [ -f /root/setupfiles/rpi-first-boot.sh ] && [ -f /root/setupfiles/rpi-first-
     mv /root/setupfiles/rpi-first-boot.sh /usr/local/bin/rpi-first-boot.sh
     chmod +x /usr/local/bin/rpi-first-boot.sh
     mv /root/setupfiles/rpi-first-boot.service /etc/systemd/system/rpi-first-boot.service
-    sysystemctl enable rpi-first-boot.service
+    systemctl daemon-reload
+    systemctl enable rpi-first-boot.service
     mv /root/setupfiles/99-br-wan.yaml /etc/netplan/99-br-wan.yaml
     echo "  First-boot files installed"
 else
@@ -124,6 +125,19 @@ systemctl enable ssh
 # Initialize Incus
 incus admin init --minimal
 incus config set core.https_address :8443
+
+# Create Incus bridge network using the system br-wan bridge (passthrough mode)
+echo "Creating Incus network using br-wan bridge..."
+incus network create br-wan \
+    --type=bridge \
+    parent=br-wan \
+    ipv4.address=none \
+    ipv6.address=none
+
+# Attach the bridge to the default profile
+incus profile device add default eth0 nic \
+    nictype=bridged \
+    parent=br-wan
 
 # Cleanup
 echo "Cleaning up..."
