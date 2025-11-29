@@ -32,9 +32,9 @@ apt-get install -y \
     net-tools \
     iptables
 
-# Install KVM for hardware virtualization
+# Install KVM for hardware virtualization (without GUI dependencies)
 echo "[3/8] Installing KVM..."
-apt-get install -y \
+apt-get install -y --no-install-recommends \
     qemu-system-aarch64 \
     qemu-kvm \
     qemu-utils \
@@ -59,7 +59,7 @@ EOF'
 # Install Incus and Incus UI (includes LXC fork)
 echo "[5/8] Installing Incus and Incus UI..."
 apt-get update
-apt-get install -y \
+apt-get install -y --no-install-recommends \
     incus \
     incus-ui-canonical
 
@@ -152,8 +152,3 @@ date > /root/setup-completed
 echo "======================================"
 echo "Configuration completed successfully!"
 echo "======================================"
-
-# Automatic VM shutdown to continue the build
-echo "Shutting down VM in 5 seconds..."
-sleep 5
-poweroff
