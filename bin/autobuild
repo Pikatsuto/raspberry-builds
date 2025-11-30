@@ -209,13 +209,21 @@ inject_firstboot_service() {
     # Find partition in Debian image
     LOOP_DEV=$(sudo losetup -fP --show "$DEBIAN_IMAGE")
 
-    # Detect root partition (usually p1 or p2)
-    if [ -e "${LOOP_DEV}p2" ]; then
-        ROOT_PART="${LOOP_DEV}p2"
-    elif [ -e "${LOOP_DEV}p1" ]; then
-        ROOT_PART="${LOOP_DEV}p1"
-    else
-        echo_error "Cannot find root partition in $DEBIAN_IMAGE"
+    # Detect rootfs partition (ext4 filesystem)
+    ROOT_PART=""
+    for part in ${LOOP_DEV}p*; do
+        if [ -b "$part" ]; then
+            FS_TYPE=$(sudo blkid -s TYPE -o value "$part" 2>/dev/null || true)
+            if [ "$FS_TYPE" = "ext4" ]; then
+                ROOT_PART="$part"
+                echo "  Found rootfs on $(basename $part) (ext4)"
+                break
+            fi
+        fi
+    done
+
+    if [ -z "$ROOT_PART" ]; then
+        echo_error "Cannot find ext4 rootfs partition in $DEBIAN_IMAGE"
         sudo losetup -d "$LOOP_DEV"
         exit 1
     fi
