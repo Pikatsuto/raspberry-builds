@@ -14,10 +14,12 @@ cd "$WORKDIR"
 
 # Global configuration
 RASPIOS_URL="https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-11-24/2025-11-24-raspios-trixie-arm64-lite.img.xz"
-DEBIAN_URL="https://cloud.debian.org/images/cloud/trixie-backports/daily/latest/debian-13-backports-genericcloud-arm64-daily.raw"
+DEBIAN_URL_CLOUD="https://cloud.debian.org/images/cloud/trixie-backports/daily/latest/debian-13-backports-genericcloud-arm64-daily.raw"
+DEBIAN_URL="https://cloud.debian.org/images/cloud/trixie-backports/daily/latest/debian-13-backports-generic-arm64-daily.raw"
 RASPIOS_IMAGE="2025-11-24-raspios-trixie-arm64-lite.img"
 DEBIAN_IMAGE="debian-13-arm64.raw"
-DEBIAN_IMAGE_DOWNLOAD="debian-13-backports-genericcloud-arm64-daily.raw"
+DEBIAN_IMAGE_DOWNLOAD_CLOUD="debian-13-backports-genericcloud-arm64-daily.raw"
+DEBIAN_IMAGE_DOWNLOAD="debian-13-backports-generic-arm64-daily.raw"
 
 # Image variables (overridden by config.sh)
 OUTPUT_IMAGE="pi5-custom.img"
@@ -176,6 +178,68 @@ check_dependencies() {
     echo_success "All required dependencies for stage $stage are installed"
 }
 
+# Detect boot mode (cloudinit or firstboot)
+detect_boot_mode() {
+    local img_name="$1"
+    local img_dir="images/$img_name"
+
+    if [ -d "$img_dir/first-boot" ]; then
+        echo "firstboot"
+    elif [ -d "$img_dir/cloudinit" ]; then
+        echo "cloudinit"
+    else
+        echo "none"
+    fi
+}
+
+# Inject first-boot service into Debian image
+inject_firstboot_service() {
+    local img_name="$1"
+    local img_dir="images/$img_name"
+
+    echo "  Injecting first-boot service into Debian image..."
+
+    # Verify first-boot files exist
+    if [ ! -f "$img_dir/first-boot/setup-runner.sh" ] || [ ! -f "$img_dir/first-boot/setup-runner.service" ]; then
+        echo_error "Missing files in $img_dir/first-boot/"
+        echo "Required: setup-runner.sh, setup-runner.service"
+        exit 1
+    fi
+
+    # Find partition in Debian image
+    LOOP_DEV=$(sudo losetup -fP --show "$DEBIAN_IMAGE")
+
+    # Detect root partition (usually p1 or p2)
+    if [ -e "${LOOP_DEV}p2" ]; then
+        ROOT_PART="${LOOP_DEV}p2"
+    elif [ -e "${LOOP_DEV}p1" ]; then
+        ROOT_PART="${LOOP_DEV}p1"
+    else
+        echo_error "Cannot find root partition in $DEBIAN_IMAGE"
+        sudo losetup -d "$LOOP_DEV"
+        exit 1
+    fi
+
+    # Mount image
+    MOUNT_DIR=$(mktemp -d)
+    sudo mount "$ROOT_PART" "$MOUNT_DIR"
+
+    # Copy first-boot files
+    sudo cp "$img_dir/first-boot/setup-runner.sh" "$MOUNT_DIR/root/setup-runner.sh"
+    sudo chmod +x "$MOUNT_DIR/root/setup-runner.sh"
+    sudo cp "$img_dir/first-boot/setup-runner.service" "$MOUNT_DIR/etc/systemd/system/setup-runner.service"
+
+    # Enable service using chroot
+    sudo chroot "$MOUNT_DIR" systemctl enable setup-runner.service 2>/dev/null || true
+
+    # Cleanup
+    sudo umount "$MOUNT_DIR"
+    sudo losetup -d "$LOOP_DEV"
+    rm -rf "$MOUNT_DIR"
+
+    echo_success "First-boot service injected and enabled"
+}
+
 # Download base images
 download_images() {
     local img_name="$1"
@@ -196,8 +260,14 @@ download_images() {
         echo_success "Raspberry Pi OS already present"
     fi
 
+    # Detect boot mode and prepare accordingly
+    BOOT_MODE=$(detect_boot_mode "$img_name")
+
     # Debian
-    if [ ! -f "$DEBIAN_IMAGE_DOWNLOAD" ]; then
+    if [ ! -f "$DEBIAN_IMAGE_DOWNLOAD_CLOUD" && "$BOOT_MODE" = "cloudinit" ]; then
+        echo "  Downloading Debian ARM64..."
+        wget -c "$DEBIAN_URL_CLOUD" -O "$DEBIAN_IMAGE_DOWNLOAD_CLOUD"
+    elif [ ! -f "$DEBIAN_IMAGE_DOWNLOAD" && "$BOOT_MODE" = "firstboot" ]; then
         echo "  Downloading Debian ARM64..."
         wget -c "$DEBIAN_URL" -O "$DEBIAN_IMAGE_DOWNLOAD"
     else
@@ -206,10 +276,11 @@ download_images() {
 
     echo "  Copying Debian ARM64 image..."
     rm -f "$DEBIAN_IMAGE"
-    cp "$DEBIAN_IMAGE_DOWNLOAD" "$DEBIAN_IMAGE"
+    [ "$BOOT_MODE" = "cloudinit" ] && cp "$DEBIAN_IMAGE_DOWNLOAD_CLOUD" "$DEBIAN_IMAGE"
+    [ "$BOOT_MODE" = "firstboot" ] && cp "$DEBIAN_IMAGE_DOWNLOAD" "$DEBIAN_IMAGE"
 
-    # Regenerate cloud-init seed.img for this image
-    if [ -d "$img_dir/cloudinit" ]; then
+    if [ "$BOOT_MODE" = "cloudinit" ]; then
+        echo "  Using cloud-init boot mode..."
         echo "  Generating cloud-init seed.img for '$img_name'..."
 
         rm -f "$img_dir/cloudinit/seed.img"
@@ -218,8 +289,12 @@ download_images() {
             -joliet -rock \
             "$img_dir/cloudinit/user-data" \
             "$img_dir/cloudinit/meta-data"
+        echo_success "cloud-init seed.img generated"
+    elif [ "$BOOT_MODE" = "firstboot" ]; then
+        echo "  Using first-boot service mode (no cloud-init)..."
+        inject_firstboot_service "$img_name"
     else
-        echo_error "No cloudinit/ in $img_dir, installation impossible"
+        echo_error "No cloudinit/ or first-boot/ found in $img_dir"
         exit 1
     fi
 
@@ -274,6 +349,10 @@ run_qemu_setup() {
     echo_step "Launching QEMU for automatic setup..."
     echo "  Image: $CURRENT_IMAGE"
     echo "  RAM: $QEMU_RAM | CPUs: $QEMU_CPUS"
+
+    # Detect boot mode
+    BOOT_MODE=$(detect_boot_mode "$img_name")
+    echo "  Boot mode: $BOOT_MODE"
     echo "  Setup will execute automatically and QEMU will shut down"
     echo ""
 
@@ -289,22 +368,42 @@ run_qemu_setup() {
         exit 1
     fi
 
-    # Launch QEMU
-    qemu-system-aarch64 \
-        -M virt \
-        -cpu cortex-a72 \
-        -m "$QEMU_RAM" \
-        -smp "$QEMU_CPUS" \
-        -bios "$UEFI_BIOS" \
-        -drive file="$DEBIAN_IMAGE",format=raw,if=virtio \
-        -drive file="$img_dir/cloudinit/seed.img",format=raw,if=virtio \
-        -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
-        -device virtio-net-pci,netdev=net0 \
-        -netdev user,id=net0 \
-        -nographic
+    # Launch QEMU with appropriate drives based on boot mode
+    if [ "$BOOT_MODE" = "cloudinit" ]; then
+        # Cloud-init mode: mount both seed.img and setup.iso
+        qemu-system-aarch64 \
+            -M virt \
+            -cpu cortex-a72 \
+            -m "$QEMU_RAM" \
+            -smp "$QEMU_CPUS" \
+            -bios "$UEFI_BIOS" \
+            -drive file="$DEBIAN_IMAGE",format=raw,if=virtio \
+            -drive file="$img_dir/cloudinit/seed.img",format=raw,if=virtio \
+            -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
+            -device virtio-net-pci,netdev=net0 \
+            -netdev user,id=net0 \
+            -nographic
+    elif [ "$BOOT_MODE" = "firstboot" ]; then
+        # First-boot mode: mount only setup.iso (service is already injected)
+        qemu-system-aarch64 \
+            -M virt \
+            -cpu cortex-a72 \
+            -m "$QEMU_RAM" \
+            -smp "$QEMU_CPUS" \
+            -bios "$UEFI_BIOS" \
+            -drive file="$DEBIAN_IMAGE",format=raw,if=virtio \
+            -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
+            -device virtio-net-pci,netdev=net0 \
+            -netdev user,id=net0 \
+            -nographic
+    else
+        echo_error "Unknown boot mode: $BOOT_MODE"
+        exit 1
+    fi
 
     echo_step "Cleaning up temporary files..."
-    rm -f "$img_dir/setup.iso" "$img_dir/cloudinit/seed.img"
+    rm -f "$img_dir/setup.iso"
+    [ "$BOOT_MODE" = "cloudinit" ] && rm -f "$img_dir/cloudinit/seed.img"
     echo_success "Cleanup completed"
 
     echo ""
@@ -536,7 +635,7 @@ Examples:
     # Build all images without compression
     $0 --all-images --skip-compress
 
-Image structure:
+Image structure (cloud-init mode):
     images/image-name/
     ├── config.sh       # Configuration (size, RAM, etc.)
     ├── setup.sh        # Script executed in QEMU
@@ -545,6 +644,15 @@ Image structure:
         ├── user-data
         ├── meta-data
         └── seed.img    # Generated automatically
+
+Image structure (first-boot mode):
+    images/image-name/
+    ├── config.sh           # Configuration (size, RAM, etc.)
+    ├── setup.sh            # Script executed in QEMU
+    ├── setupfiles/         # Files copied to the image
+    └── first-boot/         # First-boot service (no cloud-init)
+        ├── setup-runner.sh
+        └── setup-runner.service
 
 To create a new image:
     cp -r images/exemple images/my-image

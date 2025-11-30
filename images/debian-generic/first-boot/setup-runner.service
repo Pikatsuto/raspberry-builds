@@ -1,0 +1,15 @@
+[Unit]
+Description=First Boot Setup Runner (replaces cloud-init)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/root/setup-runner.sh
+
+[Service]
+Type=oneshot
+ExecStart=/root/setup-runner.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
