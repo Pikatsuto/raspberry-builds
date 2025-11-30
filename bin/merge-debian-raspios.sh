@@ -108,119 +108,6 @@ echo "Debian source:  $DEBIAN_IMAGE"
 echo "Final image:    $OUTPUT_IMAGE"
 echo "========================================================"
 
-# ============================================================================
-# Functions for RaspiOS package installation
-# ============================================================================
-
-setup_qemu_arm64() {
-    local CHROOT_DIR="$1"
-
-    echo "  Setting up QEMU user-mode emulation for ARM64..."
-
-    # Install qemu-user-static on host if not present
-    if ! command -v qemu-aarch64-static &> /dev/null; then
-        echo "    Installing qemu-user-static on host system..."
-        sudo apt update -qq
-        sudo apt install -y --no-install-recommends qemu-user-static binfmt-support
-    fi
-
-    # Copy qemu-aarch64-static into chroot
-    sudo cp /usr/bin/qemu-aarch64-static "$CHROOT_DIR/usr/bin/" 2>/dev/null || true
-
-    # Verify binfmt_misc is registered
-    if [ ! -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
-        echo "    Registering ARM64 binfmt handler..."
-        sudo systemctl restart systemd-binfmt.service 2>/dev/null || true
-    fi
-
-    echo "    ARM64 emulation ready"
-}
-
-cleanup_qemu_arm64() {
-    local CHROOT_DIR="$1"
-
-    # Remove qemu-aarch64-static from chroot
-    sudo rm -f "$CHROOT_DIR/usr/bin/qemu-aarch64-static" 2>/dev/null || true
-}
-
-setup_raspi_repos() {
-    local CHROOT_DIR="$1"
-
-    echo "  Setting up RaspiOS repositories..."
-
-    # Add RaspiOS repository key
-    sudo chroot "$CHROOT_DIR" /bin/bash -c "
-        mkdir -p /etc/apt/keyrings
-        apt update
-        apt install -y --no-install-recommends curl gnupg
-        curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --dearmor -o /etc/apt/keyrings/raspberrypi.gpg
-    "
-
-    # Add RaspiOS repository (Trixie = Debian 13)
-    sudo tee "$CHROOT_DIR/etc/apt/sources.list.d/raspi.list" > /dev/null << 'EOF'
-deb [signed-by=/etc/apt/keyrings/raspberrypi.gpg] http://archive.raspberrypi.org/debian/ trixie main
-EOF
-
-    # Configure APT pinning
-    sudo tee "$CHROOT_DIR/etc/apt/preferences.d/raspi-pin" > /dev/null << 'EOF'
-# Pin RaspiOS packages for kernel/firmware/bootloader
-Package: raspberrypi-kernel raspberrypi-bootloader libraspberrypi* firmware-brcm80211
-Pin: release o=Raspberry Pi Foundation
-Pin-Priority: 1001
-
-# Default Debian packages
-Package: *
-Pin: release o=Debian
-Pin-Priority: 500
-EOF
-}
-
-install_raspi_packages() {
-    local CHROOT_DIR="$1"
-    local BOOT_PARTITION="$2"
-
-    echo "  Installing RaspiOS kernel and firmware packages..."
-
-    # Bind mount necessary directories for chroot
-    sudo mount --bind /proc "$CHROOT_DIR/proc"
-    sudo mount --bind /sys "$CHROOT_DIR/sys"
-    sudo mount --bind /dev "$CHROOT_DIR/dev"
-    sudo mount --bind /dev/pts "$CHROOT_DIR/dev/pts"
-
-    # Mount boot partition so packages can update it
-    sudo mkdir -p "$CHROOT_DIR/boot/firmware"
-    sudo mount "$BOOT_PARTITION" "$CHROOT_DIR/boot/firmware"
-
-    # Install RaspiOS packages
-    sudo chroot "$CHROOT_DIR" /bin/bash -c "
-        export DEBIAN_FRONTEND=noninteractive
-        apt update
-        apt install -y --no-install-recommends \
-            raspberrypi-kernel \
-            raspberrypi-bootloader \
-            libraspberrypi0 \
-            libraspberrypi-bin \
-            firmware-brcm80211
-    "
-
-    # Unmount everything
-    sudo umount "$CHROOT_DIR/boot/firmware" 2>/dev/null || true
-    sudo umount "$CHROOT_DIR/dev/pts" 2>/dev/null || true
-    sudo umount "$CHROOT_DIR/dev" 2>/dev/null || true
-    sudo umount "$CHROOT_DIR/sys" 2>/dev/null || true
-    sudo umount "$CHROOT_DIR/proc" 2>/dev/null || true
-}
-
-cleanup_raspi_repos() {
-    local CHROOT_DIR="$1"
-
-    # Clean APT cache
-    sudo chroot "$CHROOT_DIR" /bin/bash -c "
-        apt clean
-        rm -rf /var/lib/apt/lists/*
-    " 2>/dev/null || true
-}
-
 # Dependencies
 echo "[1/10] Checking dependencies..."
 # sudo apt install -y parted e2fsprogs dosfstools qemu-utils rsync xz-utils
@@ -351,36 +238,16 @@ sudo mkdir -p "$BACKUP_DIR"
 sudo cp -a "$MOUNT_ROOT/etc/fstab" "$BACKUP_DIR/" 2>/dev/null || true
 
 # Replace rootfs
-echo "[9/10] Replacing rootfs with Debian and installing RaspiOS packages..."
+echo "[9/10] Replacing rootfs with Debian..."
 echo "Deleting old RaspiOS rootfs..."
 sudo find "$MOUNT_ROOT" -mindepth 1 -delete
 
 echo "Copying Debian rootfs (may take several minutes)..."
 sudo rsync -aAXv --info=progress2 "$MOUNT_DEBIAN/" "$MOUNT_ROOT/"
 
-# Install RaspiOS kernel/firmware via APT (instead of manual copy)
-if [ "$KEEP_DEBIAN_KERNEL" = false ]; then
-    echo "Installing Raspberry Pi kernel and firmware packages..."
-
-    # Setup QEMU user-mode for ARM64 chroot on x86_64
-    setup_qemu_arm64 "$MOUNT_ROOT"
-
-    # Setup RaspiOS repositories
-    setup_raspi_repos "$MOUNT_ROOT"
-
-    # Install RaspiOS packages
-    install_raspi_packages "$MOUNT_ROOT" "${OUTPUT_LOOP}p1"
-
-    # Cleanup repositories
-    cleanup_raspi_repos "$MOUNT_ROOT"
-
-    # Cleanup QEMU
-    cleanup_qemu_arm64 "$MOUNT_ROOT"
-else
-    echo "Keeping Debian kernel (warning: missing RP1 drivers!)"
-    # Still need to create /boot/firmware mount point
-    sudo mkdir -p "$MOUNT_ROOT/boot/firmware"
-fi
+# Create /boot/firmware mount point if not present
+echo "Creating /boot/firmware mount point..."
+sudo mkdir -p "$MOUNT_ROOT/boot/firmware"
 
 # Restore fstab (might have been overwritten)
 echo "Restoring RaspiOS fstab..."

@@ -51,8 +51,34 @@ resize2fs "$ROOT_PART"
 
 echo "  Partition resized successfully!"
 
-# 4. Disable this service for next boots
-echo "[4/4] Disabling first-boot service..."
+# 4. Initialize Incus
+echo "[4/5] Initializing Incus..."
+
+# Start Incus service if not already running
+systemctl start incus 2>/dev/null || true
+sleep 2
+
+# Initialize Incus with minimal config
+incus admin init --minimal
+incus config set core.https_address :8443
+
+# Create Incus bridge network using the system br-wan bridge (passthrough mode)
+echo "  Creating Incus network using br-wan bridge..."
+incus network create br-wan \
+    --type=bridge \
+    parent=br-wan \
+    ipv4.address=none \
+    ipv6.address=none || echo "  Network already exists"
+
+# Attach the bridge to the default profile
+incus profile device add default eth0 nic \
+    nictype=bridged \
+    parent=br-wan 2>/dev/null || echo "  Device already attached"
+
+echo "  Incus initialized successfully!"
+
+# 5. Disable this service for next boots
+echo "[5/5] Disabling first-boot service..."
 systemctl disable rpi-first-boot.service
 rm -f /etc/systemd/system/rpi-first-boot.service
 rm -f /usr/local/bin/rpi-first-boot.sh

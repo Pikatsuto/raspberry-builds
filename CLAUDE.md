@@ -56,10 +56,11 @@ The `autobuild` script automates the entire workflow:
 
 1. Downloads base images (RaspiOS + Debian)
 2. Creates `setup.iso` from the image's setup.sh and setupfiles/
-3. Launches QEMU with cloud-init + setup.iso
-4. Waits for automatic setup completion and poweroff
-5. Merges RaspiOS boot with Debian rootfs
-6. Compresses with PiShrink
+3. Launches QEMU ARM64 with cloud-init + setup.iso
+4. **`setup.sh` installs RaspiOS kernel/firmware packages in QEMU**
+5. Waits for automatic setup completion and poweroff
+6. Merges RaspiOS boot with Debian rootfs (pre-configured with RaspiOS packages)
+7. Compresses with PiShrink
 
 Common options:
 - `--image NAME` - Build specific image
@@ -208,7 +209,13 @@ The Raspberry Pi kernel includes drivers for all Raspberry Pi hardware. For Rasp
 
 ### RaspiOS Package Management
 
-The merge script installs RaspiOS packages via APT instead of manual file copying. This enables **automatic kernel and firmware updates** via `apt upgrade`:
+RaspiOS packages are installed during the **QEMU setup phase** (in `setup.sh`), not during the merge. This enables **automatic kernel and firmware updates** via `apt upgrade`:
+
+**Installation process:**
+1. `setup.sh` executes in QEMU ARM64 (native ARM execution)
+2. Adds RaspiOS repository + APT pinning configuration
+3. Installs RaspiOS kernel/firmware packages
+4. Merge script simply copies the configured Debian rootfs
 
 **Packages installed:**
 - `raspberrypi-kernel` - Kernel + modules (`/boot/*`, `/lib/modules`)
@@ -235,10 +242,11 @@ sudo apt upgrade -y
 # RaspiOS packages will auto-update without breaking hardware support
 ```
 
-**Why keep repos in the final image?**
-- Allows `apt upgrade` to update kernel/firmware automatically
-- Maintains hardware compatibility across updates
-- No manual intervention needed for security patches
+**Why install in QEMU instead of during merge?**
+- Simpler: No complex ARM64 chroot on x86_64 needed
+- Native: Packages install in native ARM64 QEMU environment
+- Faster: No QEMU user-mode overhead during merge
+- Cleaner: Merge script just copies files, no package management
 
 ### Partition Layout Assumptions
 
@@ -257,14 +265,10 @@ The merge script expects:
 
 Required packages (Debian/Ubuntu):
 ```bash
-sudo apt install -y parted e2fsprogs dosfstools qemu-utils rsync xz-utils genisoimage qemu-user-static binfmt-support
+sudo apt install -y parted e2fsprogs dosfstools qemu-utils rsync xz-utils genisoimage qemu-system-aarch64
 ```
 
-**Note on QEMU user-mode:**
-- Required for ARM64 chroot on x86_64 systems
-- Auto-installed by merge script if missing
-- Enables transparent ARM64 binary execution via binfmt_misc
-- Automatically cleaned up from final image
+**Note:** `qemu-system-aarch64` is required for the autobuild system to run `setup.sh` in QEMU ARM64 where RaspiOS packages are installed.
 
 ## GitHub Actions CI/CD
 
@@ -294,9 +298,8 @@ The merge script follows this 10-stage process:
 8. Backup of RaspiOS fstab
 9. Rootfs replacement:
    - Delete RaspiOS root
-   - Rsync Debian root
-   - **Install RaspiOS packages via APT** (kernel, bootloader, firmware)
-   - Configure RaspiOS repositories + APT pinning
+   - Rsync Debian root (with RaspiOS packages pre-installed from setup.sh)
+   - Create `/boot/firmware` mount point
    - Restore fstab
 10. Cleanup and finalization
 
@@ -304,8 +307,6 @@ Critical paths during merge:
 - All operations use loop devices (`losetup -P`)
 - Partition resizing uses `parted` + `resize2fs`
 - Rootfs copy uses `rsync -aAXv` to preserve all attributes
-- **QEMU user-mode enables ARM64 chroot on x86_64** (qemu-aarch64-static + binfmt_misc)
-- **RaspiOS packages installed via chroot + APT** (not manual file copy)
-- Boot partition mounted in chroot during package installation
+- **RaspiOS packages already installed** in Debian image via `setup.sh` in QEMU
+- No chroot or package installation during merge
 - Temporary mounts use PID-based naming to avoid conflicts
-- QEMU binaries cleaned up from final image

@@ -17,7 +17,7 @@ apt update
 apt upgrade -y
 
 # Install essential packages
-echo "[2/8] Installing essential packages..."
+echo "[2/9] Installing essential packages..."
 apt install -y \
     curl \
     wget \
@@ -33,8 +33,50 @@ apt install -y \
     iptables \
     parted
 
+# Install RaspiOS kernel and firmware
+echo "[3/9] Installing Raspberry Pi kernel and firmware..."
+
+# Remove old Debian kernel and firmware BEFORE installing RaspiOS packages
+echo "Removing old Debian kernel and firmware..."
+apt purge -y 'linux-image-*' 'linux-headers-*' 'linux-kbuild-*' || true
+
+# Add RaspiOS repository
+mkdir -p /etc/apt/keyrings
+curl -fsSL http://archive.raspberrypi.com/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi-archive-keyring.pgp
+
+cat > /etc/apt/sources.list.d/raspi.sources << 'EOF'
+Types: deb
+URIs: http://archive.raspberrypi.com/debian/
+Suites: trixie
+Components: main
+Signed-By: /usr/share/keyrings/raspberrypi-archive-keyring.pgp
+EOF
+
+# Configure APT pinning
+cat > /etc/apt/preferences.d/raspi-pin << 'EOF'
+# Pin RaspiOS packages for kernel/firmware/bootloader
+Package: raspberrypi-kernel raspberrypi-bootloader libraspberrypi* firmware-brcm80211
+Pin: release o=Raspberry Pi Foundation
+Pin-Priority: 1001
+
+# Default Debian packages
+Package: *
+Pin: release o=Debian
+Pin-Priority: 500
+EOF
+
+# Install RaspiOS packages
+apt update
+apt install -y \
+    linux-image-rpi-v8 \
+    linux-image-rpi-2712 \
+    linux-headers-rpi-v8 \
+    linux-headers-rpi-2712 \
+    raspi-firmware \
+    firmware-brcm80211
+
 # Install KVM for hardware virtualization (without GUI dependencies)
-echo "[3/8] Installing KVM..."
+echo "[4/9] Installing KVM..."
 apt install -y --no-install-recommends \
     qemu-system-aarch64 \
     qemu-kvm \
@@ -42,7 +84,7 @@ apt install -y --no-install-recommends \
     qemu-efi-aarch64
 
 # Add Incus repository (Zabbly - official Incus repository)
-echo "[4/8] Adding Incus repository..."
+echo "[5/9] Adding Incus repository..."
 mkdir -p /etc/apt/keyrings/
 curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --show-keys --fingerprint
 curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc
@@ -72,18 +114,18 @@ else
 fi
 
 # Install Incus and Incus UI (includes LXC fork)
-echo "[5/8] Installing Incus and Incus UI..."
+echo "[6/9] Installing Incus and Incus UI..."
 apt update
 apt install -y --no-install-recommends \
     incus \
     incus-ui-canonical
 
 # Configure bridge network br-wan
-echo "[6/8] Configuring bridge network br-wan..."
+echo "[7/9] Configuring bridge network br-wan..."
 
 # Remove NetworkManager if present (we use systemd-networkd)
 apt purge -y network-manager 2>/dev/null || true
-apt autoremove -y
+apt autoremove -y --purge
 
 # Remove cloud-init netplan configs that might conflict
 rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
@@ -92,7 +134,7 @@ rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
 netplan generate || true
 
 # System configuration
-echo "[7/8] System configuration..."
+echo "[8/9] System configuration..."
 
 # Timezone
 timedatectl set-timezone Europe/Paris || true
@@ -114,30 +156,15 @@ net.ipv6.conf.all.forwarding = 1
 EOF
 
 # Enable required services at boot
-echo "[8/8] Enabling services at boot..."
+echo "[9/9] Enabling services at boot..."
 systemctl enable systemd-networkd
 systemctl enable systemd-resolved
 systemctl enable rpi-first-boot.service || true
-systemctl enable --now incus
-systemctl enable --now incus-startup || true
+systemctl enable incus
+systemctl enable incus-startup || true
 systemctl enable ssh
 
-# Initialize Incus
-incus admin init --minimal
-incus config set core.https_address :8443
-
-# Create Incus bridge network using the system br-wan bridge (passthrough mode)
-echo "Creating Incus network using br-wan bridge..."
-incus network create br-wan \
-    --type=bridge \
-    parent=br-wan \
-    ipv4.address=none \
-    ipv6.address=none
-
-# Attach the bridge to the default profile
-incus profile device add default eth0 nic \
-    nictype=bridged \
-    parent=br-wan
+# Note: Incus will be initialized on first boot by rpi-first-boot.sh
 
 # Cleanup
 echo "Cleaning up..."
