@@ -98,3 +98,5 @@ date > /root/setup-completed
 echo "======================================"
 echo "Configuration completed successfully!"
 echo "======================================"
+
+poweroff
