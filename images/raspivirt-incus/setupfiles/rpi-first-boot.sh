@@ -69,6 +69,10 @@ done
 incus admin init --minimal
 incus config set core.https_address :8443
 
+mv /root/99-br-wan.yaml /etc/netplan/99-br-wan.yaml
+rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
+netplan generate || true
+
 # Create Incus bridge network using the system br-wan bridge (passthrough mode)
 echo "  Creating Incus network using br-wan bridge..."
 incus network create br-wan \

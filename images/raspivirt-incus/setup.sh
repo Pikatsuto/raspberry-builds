@@ -107,7 +107,7 @@ if [ -f /root/setupfiles/rpi-first-boot.sh ] && [ -f /root/setupfiles/rpi-first-
     mv /root/setupfiles/rpi-first-boot.service /etc/systemd/system/rpi-first-boot.service
     systemctl daemon-reload
     systemctl enable rpi-first-boot.service
-    mv /root/setupfiles/99-br-wan.yaml /etc/netplan/99-br-wan.yaml
+    mv /root/setupfiles/99-br-wan.yaml /root/99-br-wan.yaml
     echo "  First-boot files installed"
 else
     echo "  Warning: rpi-first-boot files not found in setupfiles"
@@ -141,12 +141,6 @@ echo "[7/9] Configuring bridge network br-wan..."
 # Remove NetworkManager if present (we use systemd-networkd)
 apt purge -y network-manager 2>/dev/null || true
 apt autoremove -y --purge
-
-# Remove cloud-init netplan configs that might conflict
-rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
-
-# Generate netplan config
-netplan generate || true
 
 # System configuration
 echo "[8/9] System configuration..."
