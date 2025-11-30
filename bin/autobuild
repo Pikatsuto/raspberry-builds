@@ -368,6 +368,105 @@ run_qemu_setup() {
         exit 1
     fi
 
+    # Resize Debian image to final size for package installations
+    echo_step "Resizing Debian image for package installation..."
+    QEMU_IMAGE_SIZE="$IMAGE_SIZE"  # Use final image size from config.sh
+
+    echo "  Current image size: $(du -h "$DEBIAN_IMAGE" | cut -f1)"
+    qemu-img resize "$DEBIAN_IMAGE" "$QEMU_IMAGE_SIZE"
+    echo "  Image resized to: $QEMU_IMAGE_SIZE"
+
+    # Expand partition and filesystem
+    echo "  Expanding partition and filesystem..."
+    LOOP_DEV=$(sudo losetup -fP --show "$DEBIAN_IMAGE")
+
+    # Detect rootfs partition (ext4 filesystem)
+    ROOTFS_PART=""
+    PART_NUM=""
+    for part in ${LOOP_DEV}p*; do
+        if [ -b "$part" ]; then
+            FS_TYPE=$(sudo blkid -s TYPE -o value "$part" 2>/dev/null || true)
+            if [ "$FS_TYPE" = "ext4" ]; then
+                ROOTFS_PART="$part"
+                PART_NUM=$(echo "$part" | grep -o 'p[0-9]*$' | sed 's/p//')
+                echo "  Found rootfs on partition $PART_NUM (ext4)"
+                break
+            fi
+        fi
+    done
+
+    if [ -z "$ROOTFS_PART" ]; then
+        echo_error "Cannot find ext4 rootfs partition!"
+        sudo losetup -d "$LOOP_DEV"
+        exit 1
+    fi
+
+    # Check if EFI partition exists and needs to be moved
+    if [ -b "${LOOP_DEV}p2" ] && [ "$PART_NUM" = "1" ]; then
+        echo "  Detected EFI partition p2, relocating to end of disk..."
+
+        # Get exact size of original EFI partition
+        EFI_SIZE_SECTORS=$(sudo blockdev --getsz "${LOOP_DEV}p2")
+        EFI_SIZE_BYTES=$(sudo blockdev --getsize64 "${LOOP_DEV}p2")
+        EFI_SIZE_MB=$((EFI_SIZE_BYTES / 1024 / 1024))
+        echo "  Original EFI partition size: ${EFI_SIZE_MB}MB (${EFI_SIZE_SECTORS} sectors)"
+
+        # Backup EFI partition (bit-for-bit copy)
+        EFI_BACKUP=$(mktemp)
+        echo "  Creating bit-for-bit backup of EFI partition..."
+        sudo dd if="${LOOP_DEV}p2" of="$EFI_BACKUP" bs=1M status=none
+        echo "  EFI partition backed up to temporary file"
+
+        # Get total disk size
+        DISK_SIZE_BYTES=$(sudo blockdev --getsize64 "$LOOP_DEV")
+        DISK_SIZE_MB=$((DISK_SIZE_BYTES / 1024 / 1024))
+
+        # Calculate new partition boundaries (leave exact space for EFI at the end)
+        ROOTFS_END_MB=$((DISK_SIZE_MB - EFI_SIZE_MB - 1))
+        EFI_START_MB=$((ROOTFS_END_MB + 1))
+
+        echo "  Disk layout: rootfs 0-${ROOTFS_END_MB}MB, EFI ${EFI_START_MB}MB-${DISK_SIZE_MB}MB"
+
+        # Remove EFI partition
+        echo "  Removing old EFI partition..."
+        sudo parted --script "$LOOP_DEV" rm 2 2>/dev/null || true
+
+        # Resize rootfs partition to leave space for EFI
+        echo "  Resizing rootfs to ${ROOTFS_END_MB}MB..."
+        sudo parted --script "$LOOP_DEV" resizepart 1 ${ROOTFS_END_MB}MB 2>/dev/null || true
+
+        # Recreate EFI partition at the end with exact original size
+        echo "  Recreating EFI partition at end with original size..."
+        sudo parted --script "$LOOP_DEV" mkpart primary fat32 ${EFI_START_MB}MB 100% 2>/dev/null || true
+        sudo parted --script "$LOOP_DEV" set 2 esp on 2>/dev/null || true
+
+        # Reload partition table
+        sudo partprobe "$LOOP_DEV" 2>/dev/null || true
+        sleep 1
+
+        # Restore EFI partition (bit-for-bit restore)
+        echo "  Restoring EFI partition from backup..."
+        sudo dd if="$EFI_BACKUP" of="${LOOP_DEV}p2" bs=1M status=none
+        rm -f "$EFI_BACKUP"
+        echo "  EFI partition restored successfully"
+
+        echo "  EFI partition relocated successfully"
+    else
+        # No EFI partition or rootfs is not p1, simple resize
+        echo "  Resizing partition $PART_NUM to 100%..."
+        sudo parted --script "$LOOP_DEV" resizepart "$PART_NUM" 100% 2>/dev/null || true
+    fi
+
+    # Resize ext4 filesystem (force non-interactive mode)
+    echo "  Checking and resizing ext4 filesystem..."
+    sudo e2fsck -fp "$ROOTFS_PART" || true
+    sudo resize2fs "$ROOTFS_PART"
+
+    # Cleanup
+    sudo losetup -d "$LOOP_DEV"
+    echo_success "Debian image resized successfully"
+    echo ""
+
     # Launch QEMU with appropriate drives based on boot mode
     if [ "$BOOT_MODE" = "cloudinit" ]; then
         # Cloud-init mode: mount both seed.img and setup.iso
