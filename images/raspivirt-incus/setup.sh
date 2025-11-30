@@ -41,7 +41,7 @@ echo "Removing old Debian kernel and firmware..."
 apt purge -y 'linux-image-*' 'linux-headers-*' 'linux-kbuild-*' || true
 
 # Add RaspiOS repository
-mkdir -p /etc/apt/keyrings
+install -m 0755 -d /etc/apt/keyrings
 curl -fsSL http://archive.raspberrypi.com/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi-archive-keyring.pgp
 
 cat > /etc/apt/sources.list.d/raspi.sources << 'EOF'
@@ -67,6 +67,7 @@ EOF
 
 # Install RaspiOS packages
 apt update
+apt install -y raspberrypi-archive-keyring --reinstall
 apt install -y \
     linux-image-rpi-v8 \
     linux-image-rpi-2712 \
@@ -74,6 +75,7 @@ apt install -y \
     linux-headers-rpi-2712 \
     raspi-firmware \
     firmware-brcm80211
+apt upgrade -y
 
 # Install KVM for hardware virtualization (without GUI dependencies)
 echo "[4/9] Installing KVM..."
@@ -82,10 +84,10 @@ apt install -y --no-install-recommends \
     qemu-kvm \
     qemu-utils \
     qemu-efi-aarch64
+usermod -aG kvm pi
 
 # Add Incus repository (Zabbly - official Incus repository)
 echo "[5/9] Adding Incus repository..."
-mkdir -p /etc/apt/keyrings/
 curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --show-keys --fingerprint
 curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc
 sh -c 'cat <<EOF > /etc/apt/sources.list.d/zabbly-incus-stable.sources
@@ -113,6 +115,19 @@ else
     echo "  Warning: rpi-first-boot files not found in setupfiles"
 fi
 
+# Install services-first-boot service for Incus + Docker initialization with internet connectivity
+echo "Installing services-first-boot service..."
+if [ -f /root/setupfiles/services-first-boot.sh ] && [ -f /root/setupfiles/services-first-boot.service ]; then
+    mv /root/setupfiles/services-first-boot.sh /usr/local/bin/services-first-boot.sh
+    chmod +x /usr/local/bin/services-first-boot.sh
+    mv /root/setupfiles/services-first-boot.service /etc/systemd/system/services-first-boot.service
+    systemctl daemon-reload
+    systemctl enable services-first-boot.service
+    echo "  Services-first-boot files installed"
+else
+    echo "  Warning: services-first-boot files not found in setupfiles"
+fi
+
 # Install MOTD updater service
 echo "Installing MOTD IP updater service..."
 if [ -f /root/setupfiles/update-motd-ip.sh ]; then
@@ -137,18 +152,11 @@ apt install -y --no-install-recommends \
 
 usermod -aG incus pi
 usermod -aG incus-admin pi
-mkdir /etc/systemd/system/incus.service.d
+mkdir -p /etc/systemd/system/incus.service.d
 cat > /etc/systemd/system/incus.service.d/override.conf << 'EOF'
 [Unit]
 Requires=incus-lxcfs.service incus.socket
 EOF
-
-# Configure bridge network br-wan
-echo "[7/9] Configuring bridge network br-wan..."
-
-# Remove NetworkManager if present (we use systemd-networkd)
-apt purge -y network-manager 2>/dev/null || true
-apt autoremove -y --purge
 
 # System configuration
 echo "[8/9] System configuration..."
@@ -177,6 +185,7 @@ echo "[9/9] Enabling services at boot..."
 systemctl enable systemd-networkd
 systemctl enable systemd-resolved
 systemctl enable rpi-first-boot.service || true
+systemctl enable services-first-boot.service || true
 systemctl enable update-motd-ip.service || true
 systemctl enable update-motd-ip.path || true
 systemctl enable incus
@@ -187,7 +196,8 @@ systemctl enable ssh
 
 # Cleanup
 echo "Cleaning up..."
-apt autoremove -y
+apt purge -y network-manager 2>/dev/null || true
+apt autoremove -y --purge
 apt clean
 rm -rf /var/lib/apt/lists/*
 

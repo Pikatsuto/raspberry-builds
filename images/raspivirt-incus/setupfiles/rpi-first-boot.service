@@ -1,7 +1,5 @@
 [Unit]
 Description=Raspberry Pi First Boot Configuration
-After=network.target systemd-networkd.service incus.service incus-startup.service
-Wants=incus.service
 Requires=network.target
 
 [Service]
