@@ -135,6 +135,14 @@ apt install -y --no-install-recommends \
     incus \
     incus-ui-canonical
 
+usermod -aG incus pi
+usermod -aG incus-admin pi
+mkdir /etc/systemd/system/incus.service.d
+cat > /etc/systemd/system/incus.service.d/override.conf << 'EOF'
+[Unit]
+Requires=incus-lxcfs.service incus.socket
+EOF
+
 # Configure bridge network br-wan
 echo "[7/9] Configuring bridge network br-wan..."
 
