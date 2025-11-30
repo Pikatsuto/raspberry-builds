@@ -113,6 +113,21 @@ else
     echo "  Warning: rpi-first-boot files not found in setupfiles"
 fi
 
+# Install MOTD updater service
+echo "Installing MOTD IP updater service..."
+if [ -f /root/setupfiles/update-motd-ip.sh ]; then
+    mv /root/setupfiles/update-motd-ip.sh /usr/local/bin/update-motd-ip.sh
+    chmod +x /usr/local/bin/update-motd-ip.sh
+    mv /root/setupfiles/update-motd-ip.service /etc/systemd/system/update-motd-ip.service
+    mv /root/setupfiles/update-motd-ip.path /etc/systemd/system/update-motd-ip.path
+    systemctl daemon-reload
+    systemctl enable update-motd-ip.service
+    systemctl enable update-motd-ip.path
+    echo "  MOTD updater installed"
+else
+    echo "  Warning: update-motd-ip files not found in setupfiles"
+fi
+
 # Install Incus and Incus UI (includes LXC fork)
 echo "[6/9] Installing Incus and Incus UI..."
 apt update
@@ -160,6 +175,8 @@ echo "[9/9] Enabling services at boot..."
 systemctl enable systemd-networkd
 systemctl enable systemd-resolved
 systemctl enable rpi-first-boot.service || true
+systemctl enable update-motd-ip.service || true
+systemctl enable update-motd-ip.path || true
 systemctl enable incus
 systemctl enable incus-startup || true
 systemctl enable ssh

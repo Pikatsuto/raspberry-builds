@@ -54,9 +54,16 @@ echo "  Partition resized successfully!"
 # 4. Initialize Incus
 echo "[4/5] Initializing Incus..."
 
-# Start Incus service if not already running
-systemctl start incus 2>/dev/null || true
-sleep 2
+# Wait for Incus to be ready (max 30 seconds)
+echo "  Waiting for Incus to be ready..."
+for i in {1..30}; do
+    if incus info >/dev/null 2>&1; then
+        echo "  Incus is ready!"
+        break
+    fi
+    echo "  Waiting... ($i/30)"
+    sleep 1
+done
 
 # Initialize Incus with minimal config
 incus admin init --minimal
