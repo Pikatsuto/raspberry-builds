@@ -1,0 +1,23 @@
+#cloud-config
+users:
+  - name: pi
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    lock_passwd: false
+
+chpasswd:
+  list: |
+    pi:raspberry
+  expire: false
+
+ssh_pwauth: true
+
+# Running the setup script from the setup.iso CD-ROM
+runcmd:
+  - mkdir -p /mnt/setup
+  - mount /dev/vdc /mnt/setup
+  - cp -r /mnt/setup/setupfiles /root/setupfiles
+  - /mnt/setup/setup
+  - umount /mnt/setup
+  - rm -rf /mnt/setup /root/setupfiles
+  - poweroff

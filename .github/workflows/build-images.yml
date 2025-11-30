@@ -53,8 +53,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             wget \
             genisoimage \
             xz-utils
@@ -88,8 +88,8 @@ jobs:
 
       - name: Install QEMU dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             qemu-system-aarch64 \
             qemu-utils \
             qemu-efi-aarch64
@@ -126,8 +126,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             parted \
             e2fsprogs \
             dosfstools \

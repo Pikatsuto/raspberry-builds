@@ -231,22 +231,11 @@ MOUNT_DEBIAN="/mnt/debian-src-$$"
 sudo mkdir -p "$MOUNT_DEBIAN"
 sudo mount "$DEBIAN_ROOT_PART" "$MOUNT_DEBIAN"
 
-# Backup critical RaspiOS files
-echo "[8/10] Backing up essential RaspiOS files..."
+# Backup critical RaspiOS files (only fstab needed)
+echo "[8/10] Backing up RaspiOS fstab..."
 BACKUP_DIR="/tmp/raspios-backup-$$"
 sudo mkdir -p "$BACKUP_DIR"
-
-# Backup
 sudo cp -a "$MOUNT_ROOT/etc/fstab" "$BACKUP_DIR/" 2>/dev/null || true
-sudo cp -a "$MOUNT_ROOT/lib/modules" "$BACKUP_DIR/" 2>/dev/null || true
-sudo cp -a "$MOUNT_ROOT/lib/firmware" "$BACKUP_DIR/" 2>/dev/null || true
-sudo cp -a "$MOUNT_ROOT/boot/firmware" "$BACKUP_DIR/" 2>/dev/null || true
-
-# For RaspiOS kernel
-if [ "$KEEP_DEBIAN_KERNEL" = false ]; then
-    sudo mkdir -p "$BACKUP_DIR/boot"
-    sudo cp -a "$MOUNT_ROOT/boot/"* "$BACKUP_DIR/boot/" 2>/dev/null || true
-fi
 
 # Replace rootfs
 echo "[9/10] Replacing rootfs with Debian..."
@@ -256,44 +245,15 @@ sudo find "$MOUNT_ROOT" -mindepth 1 -delete
 echo "Copying Debian rootfs (may take several minutes)..."
 sudo rsync -aAXv --info=progress2 "$MOUNT_DEBIAN/" "$MOUNT_ROOT/"
 
-# Restore RaspiOS files
-echo "Restoring essential RaspiOS files..."
+# Create /boot/firmware mount point if not present
+echo "Creating /boot/firmware mount point..."
+sudo mkdir -p "$MOUNT_ROOT/boot/firmware"
 
-# fstab
+# Restore fstab (might have been overwritten)
+echo "Restoring RaspiOS fstab..."
 if [ -f "$BACKUP_DIR/fstab" ]; then
     sudo cp "$BACKUP_DIR/fstab" "$MOUNT_ROOT/etc/fstab"
 fi
-
-# RaspiOS kernel modules
-if [ -d "$BACKUP_DIR/modules" ]; then
-    sudo mkdir -p "$MOUNT_ROOT/lib"
-    sudo cp -a "$BACKUP_DIR/modules" "$MOUNT_ROOT/lib/"
-fi
-
-# Firmware
-if [ -d "$BACKUP_DIR/firmware" ]; then
-    sudo mkdir -p "$MOUNT_ROOT/lib"
-    sudo cp -a "$BACKUP_DIR/firmware" "$MOUNT_ROOT/lib/"
-fi
-
-# Kernel (if keeping RaspiOS kernel)
-if [ "$KEEP_DEBIAN_KERNEL" = false ]; then
-    echo "Using Raspberry Pi kernel (recommended)..."
-    if [ -d "$BACKUP_DIR/boot" ]; then
-        sudo mkdir -p "$MOUNT_ROOT/boot"
-        sudo cp -a "$BACKUP_DIR/boot/"* "$MOUNT_ROOT/boot/"
-    fi
-
-    # Link /boot/firmware to boot partition
-    if [ -d "$BACKUP_DIR/firmware" ]; then
-        sudo mkdir -p "$MOUNT_ROOT/boot/firmware"
-    fi
-else
-    echo "Keeping Debian kernel (warning: missing RP1 drivers!)"
-fi
-
-# Create /boot/firmware if necessary
-sudo mkdir -p "$MOUNT_ROOT/boot/firmware"
 
 # Cleanup
 echo "[10/10] Finalizing..."
