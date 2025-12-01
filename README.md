@@ -46,8 +46,8 @@ sync
 
 | Image | Description | Size | Download |
 |-------|-------------|------|----------|
-| **[RaspiVirt-Incus](../../wiki/Image-RaspiVirt-Incus)** | Incus container/VM manager with KVM, web UI, and br-wan networking | 6 GB | [Latest](../../releases) |
-| **[RaspiVirt-Incus+Docker](../../wiki/Image-RaspiVirt-Incus-Docker)** | RaspiVirt-Incus + Docker + Portainer + Watchtower | 4 GB | [Latest](../../releases) |
+| **[RaspiVirt-Incus](../../wiki/Image-RaspiVirt-Incus)** | Incus container/VM manager with KVM, web UI, and br-wan networking | 500 MB | [Latest](../../releases) |
+| **[RaspiVirt-Incus+Docker](../../wiki/Image-RaspiVirt-Incus-Docker)** | RaspiVirt-Incus + Docker + Portainer + Watchtower | 700 MB | [Latest](../../releases) |
 
 **[📖 Full image documentation in the Wiki](../../wiki)**
 
