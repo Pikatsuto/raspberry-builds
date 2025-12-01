@@ -1,0 +1,72 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Checkout wiki repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki-repo
+
+      - name: Sync wiki files
+        run: |
+          echo "Syncing wiki files from main repository to wiki..."
+
+          # Copy all markdown files except README.md
+          for file in wiki/*.md; do
+            filename=$(basename "$file")
+            if [ "$filename" != "README.md" ]; then
+              cp "$file" wiki-repo/
+              echo "  Copied: $filename"
+            fi
+          done
+
+          echo ""
+          echo "Wiki contents:"
+          ls -lh wiki-repo/*.md
+
+      - name: Commit and push changes
+        working-directory: wiki-repo
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Add all changes
+          git add .
+
+          # Check if there are changes
+          if git diff --quiet HEAD; then
+            echo "No changes to commit"
+          else
+            echo "Changes detected, committing..."
+
+            # Create commit with proper multi-line message
+            git commit \
+              -m "docs: auto-sync wiki from main repository" \
+              -m "" \
+              -m "Updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
+              -m "Source commit: ${{ github.sha }}" \
+              -m "Triggered by: ${{ github.event_name }}"
+
+            # Push to wiki repository
+            echo "Pushing to wiki repository..."
+            git push
+
+            echo "✓ Wiki synchronized successfully!"
+          fi
