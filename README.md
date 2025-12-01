@@ -64,25 +64,25 @@ Complete documentation is available in the **[GitHub Wiki](../../wiki)**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. Download Base Images (RaspiOS + Debian)                 │
+│ 1. Download Base Images (RaspiOS + Debian)                  │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ 2. QEMU Setup (Native ARM64)                               │
-│    - Execute setup.sh in QEMU                              │
-│    - Install RaspiOS kernel/firmware via APT               │
-│    - Install custom packages and configuration             │
+│ 2. QEMU Setup (Native ARM64)                                │
+│    - Execute setup.sh in QEMU                               │
+│    - Install RaspiOS kernel/firmware via APT                │
+│    - Install custom packages and configuration              │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ 3. Merge (Partition-level)                                 │
-│    - Keep RaspiOS boot partition (firmware)                │
-│    - Replace root partition with configured Debian         │
+│ 3. Merge (Partition-level)                                  │
+│    - Keep RaspiOS boot partition (firmware)                 │
+│    - Replace root partition with configured Debian          │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ 4. Compress with PiShrink                                   │
-│    - Shrink filesystem and compress to .xz                 │
+│    - Shrink filesystem and compress to .xz                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
