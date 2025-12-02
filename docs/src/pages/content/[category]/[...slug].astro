@@ -1,47 +1,56 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 
+type MarkdownPage = {
+  file: string;
+  frontmatter: {
+    title?: string;
+    description?: string;
+  };
+  Content: any;
+};
+
 export async function getStaticPaths() {
-  let docPages = [];
-  let imageDocPages = [];
-  let imageSourcePages = [];
+  let docPages: MarkdownPage[] = [];
+  let imageDocPages: MarkdownPage[] = [];
+  let imageSourcePages: MarkdownPage[] = [];
 
   try {
-    docPages = await Astro.glob('../../../content/docs/*.md');
+    docPages = await Astro.glob<{ title?: string; description?: string }>('../../../content/docs/*.md');
   } catch (e) {
     // Content not generated yet
   }
 
   try {
-    imageDocPages = await Astro.glob('../../../content/image-docs/*.md');
+    imageDocPages = await Astro.glob<{ title?: string; description?: string }>('../../../content/image-docs/*.md');
   } catch (e) {
     // Content not generated yet
   }
 
   try {
-    imageSourcePages = await Astro.glob('../../../content/image-sources/*.md');
+    imageSourcePages = await Astro.glob<{ title?: string; description?: string }>('../../../content/image-sources/*.md');
   } catch (e) {
     // Content not generated yet
   }
 
-  const docPaths = docPages.map((page) => {
-    const slug = page.file.split('/').pop().replace('.md', '');
+  const docPaths = docPages.map((page: MarkdownPage) => {
+    const slug = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
       params: { category: 'docs', slug },
       props: { page },
     };
   });
 
-  const imageDocPaths = imageDocPages.map((page) => {
-    const slug = page.file.split('/').pop().replace('.md', '');
+  const imageDocPaths = imageDocPages.map((page: MarkdownPage) => {
+    const slug = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
       params: { category: 'image-docs', slug },
       props: { page },
     };
   });
 
-  const imageSourcePaths = imageSourcePages.map((page) => {
-    const slug = page.file.split('/').pop().replace('.md', '');
+  const imageSourcePaths = imageSourcePages.map((page: MarkdownPage) => {
+    const slug = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
       params: { category: 'image-sources', slug },
       props: { page },
@@ -51,9 +60,9 @@ export async function getStaticPaths() {
   return [...docPaths, ...imageDocPaths, ...imageSourcePaths];
 }
 
-const { page } = Astro.props;
+const { page } = Astro.props as { page: MarkdownPage };
 const { Content } = page;
-const { title, description } = page.frontmatter;
+const { title = 'Untitled', description } = page.frontmatter;
 ---
 
 <Layout title={title} description={description}>

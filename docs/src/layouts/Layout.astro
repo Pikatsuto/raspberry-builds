@@ -8,31 +8,39 @@ const { title, description = 'Documentation for Raspberry Pi hybrid image builde
 const base = import.meta.env.BASE_URL;
 
 // Get all docs and images for navigation
-let docPages = [];
-let imageDocPages = [];
-let imageSourcePages = [];
+type MarkdownPage = {
+  file: string;
+  frontmatter: {
+    title?: string;
+    description?: string;
+  };
+};
+
+let docPages: MarkdownPage[] = [];
+let imageDocPages: MarkdownPage[] = [];
+let imageSourcePages: MarkdownPage[] = [];
 
 try {
-  docPages = await Astro.glob('../content/docs/*.md');
+  docPages = await Astro.glob<{ title?: string; description?: string }>('../content/docs/*.md');
 } catch (e) {
   // Content not generated yet
 }
 
 try {
-  imageDocPages = await Astro.glob('../content/image-docs/*.md');
+  imageDocPages = await Astro.glob<{ title?: string; description?: string }>('../content/image-docs/*.md');
 } catch (e) {
   // Content not generated yet
 }
 
 try {
-  imageSourcePages = await Astro.glob('../content/image-sources/*.md');
+  imageSourcePages = await Astro.glob<{ title?: string; description?: string }>('../content/image-sources/*.md');
 } catch (e) {
   // Content not generated yet
 }
 
 const sortedDocs = docPages
-  .map(page => {
-    const filename = page.file.split('/').pop().replace('.md', '');
+  .map((page: MarkdownPage) => {
+    const filename = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
       url: `${base}/content/docs/${filename}`,
       title: page.frontmatter.title || 'Untitled'
@@ -41,8 +49,8 @@ const sortedDocs = docPages
   .sort((a, b) => a.title.localeCompare(b.title));
 
 const sortedImageDocs = imageDocPages
-  .map(page => {
-    const filename = page.file.split('/').pop().replace('.md', '');
+  .map((page: MarkdownPage) => {
+    const filename = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
       url: `${base}/content/image-docs/${filename}`,
       title: page.frontmatter.title || 'Untitled'
@@ -51,8 +59,8 @@ const sortedImageDocs = imageDocPages
   .sort((a, b) => a.title.localeCompare(b.title));
 
 const sortedImageSources = imageSourcePages
-  .map(page => {
-    const filename = page.file.split('/').pop().replace('.md', '');
+  .map((page: MarkdownPage) => {
+    const filename = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
       url: `${base}/content/image-sources/${filename}`,
       title: page.frontmatter.title || 'Untitled'
@@ -71,7 +79,7 @@ const sortedImageSources = imageSourcePages
     <title>{title} - Raspberry Pi Builds</title>
   </head>
   <body class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <img loading="eager" fetchpriority="high" src={`${base}/HeroBackground.webp`} alt="" class="blur-lg fixed -z-50 -translate-x-1/2 inset-x-1/2 -inset-y-full w-[2353px] h-[1969px] object-cover max-w-[unset]">
+    <img loading="eager" src={`${base}/HeroBackground.webp`} alt="" class="blur-lg fixed -z-50 -translate-x-1/2 inset-x-1/2 -inset-y-full w-[2353px] h-[1969px] object-cover max-w-[unset]">
 
     <div class="container mx-auto px-4 opacity-80">
       <!-- Header -->

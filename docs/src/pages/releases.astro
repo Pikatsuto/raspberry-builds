@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Releases from '../components/Releases.vue';
+import ReleasesComponent from '../components/Releases.vue';
 ---
 
 <Layout title="Pre-built Images">
@@ -24,6 +24,6 @@ import Releases from '../components/Releases.vue';
       </a>
     </div>
 
-    <Releases client:load />
+    <ReleasesComponent client:load />
   </div>
 </Layout>
