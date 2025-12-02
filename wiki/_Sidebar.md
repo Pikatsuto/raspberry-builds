@@ -11,6 +11,7 @@
 **Images**
 - [RaspiVirt-Incus](Image-RaspiVirt-Incus)
 - [RaspiVirt-Incus+Docker](Image-RaspiVirt-Incus-Docker)
+- [RaspiVirt-Incus+HAOS](Image-RaspiVirt-Incus-HAOS)
 
 **Resources**
 - [Main README](https://github.com/Pikatsuto/raspberry-builds/blob/main/README.md)

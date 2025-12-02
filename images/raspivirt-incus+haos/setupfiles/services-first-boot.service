@@ -1,0 +1,19 @@
+[Unit]
+Description=Services First Boot Initialization (Incus + Docker)
+After=NetworkManager.service incus.service
+Wants=NetworkManager.service incus.service
+Requires=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/services-first-boot.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+# Retry if services are not ready yet
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target
