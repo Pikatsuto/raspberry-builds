@@ -49,14 +49,14 @@ jobs:
         working-directory: docs
         run: npm run aggregate-content
 
-      - name: Generate static site
+      - name: Build static site
         working-directory: docs
-        run: npm run generate
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./docs/.output/public
+          path: ./docs/dist
 
   deploy:
     environment:

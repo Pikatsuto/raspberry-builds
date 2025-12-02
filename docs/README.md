@@ -1,167 +1,86 @@
-# Raspberry Pi Builds Documentation
+# Raspberry Pi Builds Documentation (Astro)
 
-This directory contains the Nuxt-based documentation site for the Raspberry Pi Builds project. The site aggregates content from the GitHub wiki and README files to create a unified documentation experience.
+This is an **alternative version** of the documentation site built with **Astro** instead of Nuxt.
 
-## Architecture
+## Key Features
 
-- **Framework**: Nuxt 3 with Nuxt Content for markdown rendering
-- **UI**: Nuxt UI for components and styling
-- **Content Sources**:
-  - `/wiki/*.md` - GitHub wiki pages
-  - `/README.md` - Project overview
-  - `/.github/README.md` - GitHub Actions documentation
-  - `/images/*/` - Image configuration details
+- **Astro** - Fast, modern static site generator
+- **Vue 3** - For interactive components (Releases page)
+- **Tailwind CSS** - Utility-first styling
+- **MDX** - Enhanced markdown support
+- **Content Aggregation** - Automatically pulls from `/wiki/` and README files
 
 ## Development
 
-### Prerequisites
-
-- Node.js 20+
-- npm or pnpm
-
-### Local Development
-
 ```bash
 # Install dependencies
-cd docs
+cd docs-astro
 npm install
 
-# Aggregate content from wiki and READMEs
+# Aggregate content
 npm run aggregate-content
 
-# Start development server
+# Start dev server
 npm run dev
+# → http://localhost:4321/raspberry-builds/
 ```
 
-Visit http://localhost:3000 to view the documentation site.
-
-### Building for Production
+## Build
 
 ```bash
-# Generate static site
-npm run generate
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-The static site will be generated in `.output/public/` directory.
+The static site will be generated in `dist/` directory.
 
-### Testing Production Build Locally
+## Comparison with Nuxt Version
 
-The production build uses `baseURL: '/raspberry-builds/'` which means all links point to `/raspberry-builds/...`. To test this locally with the correct path structure:
+**Astro advantages:**
+- Faster build times
+- Smaller bundle size (zero JS by default)
+- Better performance (static HTML)
+- Component framework agnostic (can mix Vue, React, etc.)
 
-```bash
-# After generating the site, run:
-npm run test:production
+**Nuxt advantages:**
+- Better SSR support if needed
+- More Vue ecosystem integration
+- Built-in routing conventions
+
+## Structure
+
 ```
-
-This will:
-1. Create a test structure: `dist-test/raspberry-builds/`
-2. Copy the built site into it
-3. Start a server at http://localhost:3000
-4. **Visit http://localhost:3000/raspberry-builds/** (note the path!)
-
-**Important:** The baseURL is conditional:
-- **Development** (`npm run dev`): Uses `/` - visit http://localhost:3000/
-- **Production** (`npm run generate`): Uses `/raspberry-builds/` - visit http://localhost:3000/raspberry-builds/
-
-## Content Aggregation
-
-The `scripts/aggregate-content.mjs` script automatically:
-
-1. Reads markdown files from `/wiki/` directory
-2. Processes main repository READMEs (excluding CLAUDE.md)
-3. Generates documentation from image configurations in `/images/`
-4. Adds frontmatter metadata to all content
-5. Organizes content into categories (docs, images)
-
-Content is categorized as:
-- **docs**: Wiki pages, README files, general documentation
-- **images**: Wiki pages starting with "Image-" and image configurations
+docs-astro/
+├── src/
+│   ├── layouts/
+│   │   └── Layout.astro         # Main layout
+│   ├── pages/
+│   │   ├── index.astro          # Home page
+│   │   ├── releases.astro       # Releases page
+│   │   └── content/[category]/[...slug].astro  # Dynamic content pages
+│   ├── components/
+│   │   └── Releases.vue         # Vue component for releases
+│   └── content/
+│       ├── docs/                # Generated docs (ignored by git)
+│       └── images/              # Generated image docs (ignored by git)
+├── scripts/
+│   └── aggregate-content.mjs    # Content aggregation script
+├── public/
+│   └── .nojekyll                # GitHub Pages config
+└── astro.config.mjs             # Astro configuration
+```
 
 ## Deployment
 
-The site is automatically deployed to GitHub Pages via GitHub Actions:
+This version can be deployed alongside the Nuxt version or replace it. Simply update the GitHub Actions workflow to build from `docs-astro/` instead of `docs/`.
 
-- **Workflow**: `.github/workflows/deploy-docs.yml`
-- **Trigger**: Push to `main` branch (when docs, wiki, or images change)
-- **URL**: https://pikatsuto.github.io/raspberry-builds/
+## Content Sources
 
-### Manual Deployment
-
-You can manually trigger deployment from the GitHub Actions tab.
-
-## File Structure
-
-```
-docs/
-├── app.vue                 # Root app component
-├── assets/
-│   └── css/
-│       └── main.css       # Tailwind CSS
-├── layouts/
-│   └── default.vue        # Main layout with navigation
-├── pages/
-│   ├── index.vue          # Home page
-│   └── [...slug].vue      # Dynamic content pages
-├── public/
-│   └── .nojekyll          # GitHub Pages config
-├── scripts/
-│   └── aggregate-content.mjs  # Content aggregation script
-├── nuxt.config.ts         # Nuxt configuration
-└── package.json           # Dependencies
-```
-
-## Adding Content
-
-### Wiki Pages
-
-Add or edit markdown files in `/wiki/`. They will be automatically included in the next build.
-
-### Image Documentation
-
-Add a `README.md` file in `/images/<image-name>/` to provide custom documentation for that image. The aggregation script will combine it with the configuration details.
-
-### README Files
-
-Main README files are automatically included. To add more:
-
-1. Edit `scripts/aggregate-content.mjs`
-2. Add the file to the `readmeFiles` array in `processReadmes()`
-
-## Customization
-
-### Styling
-
-- Modify `assets/css/main.css` for global styles
-- Use Nuxt UI components for consistent theming
-- Tailwind classes available throughout
-
-### Navigation
-
-The sidebar navigation is automatically generated from content frontmatter categories. To customize:
-
-1. Edit `layouts/default.vue`
-2. Modify the navigation query in the `<script setup>` section
-
-### Home Page
-
-Edit `pages/index.vue` to customize the landing page content and layout.
-
-## Troubleshooting
-
-### Content not updating
-
-1. Run `npm run aggregate-content` manually
-2. Clear Nuxt cache: `rm -rf .nuxt .output`
-3. Restart dev server
-
-### Build errors
-
-1. Check Node.js version (should be 20+)
-2. Delete `node_modules` and `package-lock.json`
-3. Run `npm install` again
-
-### GitHub Pages not updating
-
-1. Check GitHub Actions workflow status
-2. Ensure GitHub Pages is enabled in repository settings
-3. Verify the source is set to "GitHub Actions"
+Same as Nuxt version:
+- `/wiki/*.md` - GitHub wiki pages
+- `/README.md` - Project overview
+- `/.github/README.md` - GitHub Actions docs
+- `/images/*/` - Image configurations

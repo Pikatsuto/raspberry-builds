@@ -1,35 +1,27 @@
-# Nuxt dev/build outputs
-.output
-.nuxt
-.nitro
-.cache
-dist
-dist-test
+# build output
+dist/
+.output/
 
-# Node dependencies
-node_modules
+# generated types
+.astro/
 
-# Logs
-logs
-*.log
+# dependencies
+node_modules/
+
+# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-# Misc
-.DS_Store
-.fleet
-.idea
-
-# Local env files
+# environment variables
 .env
-.env.*
-!.env.example
+.env.production
 
-# Content (generated)
-content/
+# macOS-specific files
+.DS_Store
 
-# Temporary wiki clone
-.tmp-wiki
+# content (generated)
+src/content/docs/
+src/content/image-docs/
+src/content/image-sources/

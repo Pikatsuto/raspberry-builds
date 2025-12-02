@@ -1,0 +1,65 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+  let docPages = [];
+  let imageDocPages = [];
+  let imageSourcePages = [];
+
+  try {
+    docPages = await Astro.glob('../../../content/docs/*.md');
+  } catch (e) {
+    // Content not generated yet
+  }
+
+  try {
+    imageDocPages = await Astro.glob('../../../content/image-docs/*.md');
+  } catch (e) {
+    // Content not generated yet
+  }
+
+  try {
+    imageSourcePages = await Astro.glob('../../../content/image-sources/*.md');
+  } catch (e) {
+    // Content not generated yet
+  }
+
+  const docPaths = docPages.map((page) => {
+    const slug = page.file.split('/').pop().replace('.md', '');
+    return {
+      params: { category: 'docs', slug },
+      props: { page },
+    };
+  });
+
+  const imageDocPaths = imageDocPages.map((page) => {
+    const slug = page.file.split('/').pop().replace('.md', '');
+    return {
+      params: { category: 'image-docs', slug },
+      props: { page },
+    };
+  });
+
+  const imageSourcePaths = imageSourcePages.map((page) => {
+    const slug = page.file.split('/').pop().replace('.md', '');
+    return {
+      params: { category: 'image-sources', slug },
+      props: { page },
+    };
+  });
+
+  return [...docPaths, ...imageDocPaths, ...imageSourcePaths];
+}
+
+const { page } = Astro.props;
+const { Content } = page;
+const { title, description } = page.frontmatter;
+---
+
+<Layout title={title} description={description}>
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8">
+    <article class="prose dark:prose-invert max-w-none">
+      <Content />
+    </article>
+  </div>
+</Layout>

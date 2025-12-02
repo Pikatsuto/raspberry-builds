@@ -1,0 +1,29 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Releases from '../components/PreReleases.vue';
+---
+
+<Layout title="Pre-built Images">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Pre-built Images</h1>
+        <p class="text-gray-600 dark:text-gray-400 mt-2">
+          Download ready-to-use Raspberry Pi hybrid images
+        </p>
+      </div>
+      <a
+        href="https://github.com/Pikatsuto/raspberry-builds/releases"
+        target="_blank"
+        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <Releases client:load />
+  </div>
+</Layout>

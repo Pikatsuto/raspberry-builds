@@ -7,58 +7,58 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '../..')
 const DOCS_ROOT = resolve(__dirname, '..')
-const CONTENT_DIR = resolve(DOCS_ROOT, 'content')
+const CONTENT_DOCS_DIR = resolve(DOCS_ROOT, 'src/content/docs')
+const CONTENT_IMAGE_DOCS_DIR = resolve(DOCS_ROOT, 'src/content/image-docs')
+const CONTENT_IMAGE_SOURCES_DIR = resolve(DOCS_ROOT, 'src/content/image-sources')
 const WIKI_DIR = resolve(REPO_ROOT, 'wiki')
 
-console.log('🚀 Starting content aggregation...\n')
+console.log('🚀 Starting content aggregation for Astro...\n')
 
-// Ensure content directory exists
-await fs.mkdir(CONTENT_DIR, { recursive: true })
+// Ensure content directories exist
+await fs.mkdir(CONTENT_DOCS_DIR, { recursive: true })
+await fs.mkdir(CONTENT_IMAGE_DOCS_DIR, { recursive: true })
+await fs.mkdir(CONTENT_IMAGE_SOURCES_DIR, { recursive: true })
 
 // Clean existing content
 console.log('🧹 Cleaning existing content...')
-try {
-  const files = await fs.readdir(CONTENT_DIR)
-  for (const file of files) {
-    await fs.rm(resolve(CONTENT_DIR, file), { recursive: true, force: true })
+for (const dir of [CONTENT_DOCS_DIR, CONTENT_IMAGE_DOCS_DIR, CONTENT_IMAGE_SOURCES_DIR]) {
+  try {
+    const files = await fs.readdir(dir)
+    for (const file of files) {
+      await fs.rm(resolve(dir, file), { recursive: true, force: true })
+    }
+  } catch (err) {
+    // Directory might be empty
   }
-} catch (err) {
-  // Directory might not exist yet
 }
 
-// Create category directories
-await fs.mkdir(resolve(CONTENT_DIR, 'docs'), { recursive: true })
-await fs.mkdir(resolve(CONTENT_DIR, 'images'), { recursive: true })
-
 /**
- * Fix markdown links for Nuxt Content compatibility
+ * Fix markdown links for Astro compatibility
  */
-function fixMarkdownLinks(content, category) {
+function fixMarkdownLinks(content) {
   let fixed = content
 
-  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/docs/Page-Name) or [Page Name](/images/Page-Name)
-  fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (match, pageName) => {
+  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/docs/Page-Name) or [Page Name](/raspberry-builds/images/Page-Name)
+  fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
     const slug = pageName.replace(/\s+/g, '-')
     const cat = slug.startsWith('Image-') ? 'images' : 'docs'
-    return `[${pageName}](/${cat}/${slug})`
+    return `[${pageName}](/raspberry-builds/${cat}/${slug})`
   })
 
-  // Fix relative wiki links: [text](Page-Name) -> [text](/docs/Page-Name) or [text](/images/Page-Name)
-  fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (match, text, link) => {
-    // Skip if it's already a proper link
+  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/docs/Page-Name)
+  fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (_, text, link) => {
     if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
-      return match
+      return `[${text}](${link})`
     }
-    // Remove .md extension if present
     const cleanLink = link.replace(/\.md$/, '')
     const cat = cleanLink.startsWith('Image-') ? 'images' : 'docs'
-    return `[${text}](/${cat}/${cleanLink})`
+    return `[${text}](/raspberry-builds/${cat}/${cleanLink})`
   })
 
   // Fix GitHub URLs that point to the wiki
-  fixed = fixed.replace(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/wiki\/([^\s)]+)/g, (match, page) => {
+  fixed = fixed.replace(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/wiki\/([^\s)]+)/g, (_, page) => {
     const cat = page.startsWith('Image-') ? 'images' : 'docs'
-    return `/${cat}/${page}`
+    return `/raspberry-builds/${cat}/${page}`
   })
 
   return fixed
@@ -67,17 +67,16 @@ function fixMarkdownLinks(content, category) {
 /**
  * Process markdown content to add frontmatter
  */
-function addFrontmatter(content, title, category, description = '') {
+function addFrontmatter(content, title, description = '') {
   // Remove existing frontmatter if present
   const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n/, '')
 
   // Fix markdown links
-  const fixedContent = fixMarkdownLinks(withoutFrontmatter, category)
+  const fixedContent = fixMarkdownLinks(withoutFrontmatter)
 
   const frontmatter = `---
-title: ${title}
-category: ${category}
-description: ${description}
+title: "${title}"
+description: "${description}"
 ---
 
 `
@@ -99,25 +98,22 @@ async function processWiki() {
       const content = await fs.readFile(resolve(WIKI_DIR, file), 'utf-8')
       const name = basename(file, '.md')
 
-      // Convert filename to title (e.g., "Image-RaspiVirt-Incus-HAOS" -> "Image RaspiVirt Incus HAOS")
+      // Convert filename to title
       const title = name.replace(/-/g, ' ')
 
-      // Determine category
-      let category = 'docs'
-      if (name.startsWith('Image-')) {
-        category = 'images'
-      }
+      // Determine category: Wiki pages starting with "Image-" go to image-docs
+      const isImageDoc = name.startsWith('Image-')
+      const outputDir = isImageDoc ? CONTENT_IMAGE_DOCS_DIR : CONTENT_DOCS_DIR
 
       // Process content
       const processedContent = addFrontmatter(
         content,
         title,
-        category,
         `Wiki: ${title}`
       )
 
       // Write to content directory
-      const outputPath = resolve(CONTENT_DIR, category, file)
+      const outputPath = resolve(outputDir, file)
       await fs.writeFile(outputPath, processedContent)
       processed++
     }
@@ -135,19 +131,18 @@ async function processReadmes() {
   console.log('📄 Processing README files...')
 
   const readmeFiles = [
-    { path: 'README.md', title: 'Project Overview', category: 'docs' },
-    { path: '.github/README.md', title: 'GitHub Actions Documentation', category: 'docs' },
+    { path: 'README.md', title: 'Project Overview' },
+    { path: '.github/README.md', title: 'GitHub Actions Documentation' },
   ]
 
   let processed = 0
-  for (const { path, title, category } of readmeFiles) {
+  for (const { path, title } of readmeFiles) {
     const fullPath = resolve(REPO_ROOT, path)
     try {
       const content = await fs.readFile(fullPath, 'utf-8')
       const processedContent = addFrontmatter(
         content,
         title,
-        category,
         `Documentation from ${path}`
       )
 
@@ -155,7 +150,7 @@ async function processReadmes() {
         ? basename(path)
         : `${basename(dirname(path))}-${basename(path)}`
 
-      const outputPath = resolve(CONTENT_DIR, category, outputName)
+      const outputPath = resolve(CONTENT_DOCS_DIR, outputName)
       await fs.writeFile(outputPath, processedContent)
       processed++
     } catch (err) {
@@ -180,11 +175,15 @@ async function processImageConfigs() {
 
     for (const imageName of images) {
       const imagePath = resolve(imagesDir, imageName)
-      const stat = await fs.stat(imagePath)
+      let stat
+      try {
+        stat = await fs.stat(imagePath)
+      } catch {
+        continue
+      }
 
       if (!stat.isDirectory()) continue
 
-      // Read config.sh
       const configPath = resolve(imagePath, 'config.sh')
       const readmePath = resolve(imagePath, 'README.md')
 
@@ -197,7 +196,7 @@ async function processImageConfigs() {
           const readme = await fs.readFile(readmePath, 'utf-8')
           content += readme + '\n\n'
         } catch {
-          // No README, skip
+          // No README
         }
 
         // Parse config.sh
@@ -211,7 +210,7 @@ async function processImageConfigs() {
           const setup = await fs.readFile(setupPath, 'utf-8')
           content += '## Setup Script\n\n```bash\n' + setup + '\n```\n\n'
         } catch {
-          // No setup.sh, skip
+          // No setup.sh
         }
 
         // Add boot mode info
@@ -241,11 +240,10 @@ async function processImageConfigs() {
         const processedContent = addFrontmatter(
           content,
           imageName,
-          'images',
           description
         )
 
-        const outputPath = resolve(CONTENT_DIR, 'images', `config-${imageName}.md`)
+        const outputPath = resolve(CONTENT_IMAGE_SOURCES_DIR, `${imageName}.md`)
         await fs.writeFile(outputPath, processedContent)
         processed++
       } catch (err) {
