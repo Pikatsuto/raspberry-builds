@@ -31,7 +31,8 @@ apt install -y \
     bridge-utils \
     net-tools \
     iptables \
-    parted
+    parted \
+    dnsmasq
 
 # Install RaspiOS kernel and firmware
 echo "[3/9] Installing Raspberry Pi kernel and firmware..."
@@ -101,12 +102,18 @@ Signed-By: /etc/apt/keyrings/zabbly.asc
 
 EOF'
 
-# Install first-boot service for partition resize and eth0 naming
+# Prepare dnsmasq directory for br-lan DHCP (will be configured if eth1 exists)
+echo "Preparing dnsmasq configuration directory..."
+mkdir -p /etc/dnsmasq.d/
+# Keep dnsmasq config in /root/setupfiles/ for rpi-first-boot.sh to deploy if eth1 exists
+
+# Install first-boot service for partition resize and network configuration
 echo "Installing first-boot service..."
 if [ -f /root/setupfiles/rpi-first-boot.sh ] && [ -f /root/setupfiles/rpi-first-boot.service ]; then
     mv /root/setupfiles/rpi-first-boot.sh /usr/local/bin/rpi-first-boot.sh
     chmod +x /usr/local/bin/rpi-first-boot.sh
     mv /root/setupfiles/rpi-first-boot.service /etc/systemd/system/rpi-first-boot.service
+
     systemctl daemon-reload
     systemctl enable rpi-first-boot.service
     echo "  First-boot files installed"

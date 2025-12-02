@@ -12,10 +12,15 @@ RaspiVirt-Incus+HAOS extends the base [RaspiVirt-Incus](Image-RaspiVirt-Incus) i
 - **Home Assistant OS VM**: Pre-configured HAOS virtual machine (16.3)
 - **Automatic Setup**: Downloads, imports, and configures HAOS on first boot
 - **Optimized Configuration**: 2 CPU cores, 4GB RAM, 24GB disk
-- **Bridged Networking**: eth0 on br-wan for direct LAN access
+- **Adaptive Network Configuration**:
+  - Dual-NIC mode: eth1 detected → br-lan (internal LAN) + br-wan (WAN)
+  - Single-NIC mode: eth0 → br-wan (WAN)
+- **Built-in DHCP Server**: Automatic DHCP on br-lan (192.168.10.100-199) with Cloudflare DNS
+- **NAT Routing**: Internet access for internal LAN via NAT masquerade
 - **Zigbee Dongle Detection**: Automatically detects and passthroughs USB Zigbee dongles
 - **Auto-Start on Boot**: HAOS VM starts automatically when Raspberry Pi boots
 - **Hardware Acceleration**: KVM-accelerated virtualization for better performance
+- **Secure Boot Disabled**: HAOS VM configured to bypass Secure Boot restrictions
 
 ## Image Specifications
 
@@ -45,112 +50,247 @@ This image includes everything from [RaspiVirt-Incus](Image-RaspiVirt-Incus) plu
 - **HAOS 16.3 ARM64** - Latest Home Assistant Operating System
 - **Virtual Machine**: Incus VM with KVM acceleration
 - **Resource Allocation**: 2 CPU cores, 4GB RAM, 24GB disk
-- **Network**: Dual interfaces (default bridge + br-wan)
+- **Network**: Adaptive (br-lan or br-wan depending on eth1 presence)
 - **Auto-Start**: Enabled on boot
+- **Secure Boot**: Disabled for compatibility
+
+### Network Stack
+- **NetworkManager** - Bridge and connection management
+- **dnsmasq** - DHCP server (DNS disabled, port 0)
+  - Range: 192.168.10.100-199
+  - DNS servers: 1.1.1.1, 1.0.0.1 (Cloudflare)
+  - Lease time: 12 hours
+- **iptables** - NAT masquerade and routing rules
 
 ### Additional Configuration
 - **USB Passthrough**: Automatic Zigbee dongle detection and passthrough
 - **First-Boot Automation**: HAOS download, import, and VM creation
+- **Adaptive Networking**: Dual-bridge mode if eth1 detected
 
 For base system packages (Debian, RaspiOS kernel, Incus, KVM), see [RaspiVirt-Incus documentation](Image-RaspiVirt-Incus#installed-software).
 
 ## Network Configuration
 
-The HAOS VM uses a single network interface connected to br-wan:
+The image supports **two network modes** that are automatically detected and configured on first boot:
 
-### eth0 (br-wan Bridge)
+### Mode 1: Dual-NIC (eth1 detected)
+
+When a second network interface (eth1) is detected, the system creates an **internal LAN** with DHCP:
+
 ```
 Internet
     ↓
-Your Router (DHCP)
+Router (DHCP)
+    ↓
+┌──────────────────────────────────────────┐
+│  Raspberry Pi                            │
+│  ┌────────────────────────────────────┐  │
+│  │ eth0 → br-wan (WAN)                │  │ ← Gets IP from router
+│  │        ↑                            │  │
+│  │        │ NAT MASQUERADE             │  │
+│  │        ↓                            │  │
+│  │ eth1 → br-lan (Internal LAN)       │  │
+│  │        192.168.10.254/24            │  │
+│  │        ├─ DHCP: 192.168.10.100-199 │  │
+│  │        ├─ DNS: 1.1.1.1, 1.0.0.1    │  │
+│  │        ├─ HAOS VM (default)        │  │ ← Gets 192.168.10.x
+│  │        └─ Other VMs/Containers     │  │
+│  └────────────────────────────────────┘  │
+└──────────────────────────────────────────┘
+```
+
+**Configuration**:
+- **br-lan** (default network): Internal LAN with DHCP server
+  - IP: `192.168.10.254/24`
+  - DHCP range: `192.168.10.100-199`
+  - DNS servers: `1.1.1.1`, `1.0.0.1` (Cloudflare)
+  - Managed by NetworkManager + dnsmasq
+- **br-wan** (optional network): WAN connectivity
+  - IP from router DHCP
+  - For VMs/containers needing direct internet access
+- **NAT routing**: VMs on br-lan can access internet via br-wan (iptables MASQUERADE)
+- **Incus default profile**: Uses br-lan
+
+**Use cases**:
+- Isolated home automation network
+- Multiple NICs on Raspberry Pi (USB Ethernet adapter + built-in)
+- Separate IoT network from main LAN
+- Advanced routing/firewall setups
+
+### Mode 2: Single-NIC (eth1 not detected)
+
+When only eth0 is available, the system creates a simple **WAN bridge**:
+
+```
+Internet
+    ↓
+Router (DHCP)
     ↓
 ┌─────────────────────────────────────┐
 │  Raspberry Pi                       │
 │  ┌───────────────────────────────┐  │
-│  │  br-wan (Bridge)              │  │
-│  │   ├─ eth0 (Physical)          │  │ ← RPI gets IP from router
-│  │   ├─ HAOS VM (eth0)           │  │ ← HAOS gets IP from router
-│  │   └─ Other containers/VMs     │  │
+│  │  eth0 → br-wan (WAN)          │  │ ← Gets IP from router
+│  │         ├─ Raspberry Pi       │  │
+│  │         ├─ HAOS VM (default)  │  │ ← Gets IP from router
+│  │         └─ Other VMs/Containers  │
 │  └───────────────────────────────┘  │
 └─────────────────────────────────────┘
 ```
 
-**Network Setup**:
-- The Incus default profile is configured to use `br-wan` for eth0
-- All VMs and containers created with the default profile automatically get an interface on `br-wan`
-- HAOS VM inherits this configuration and gets its IP directly from your router
+**Configuration**:
+- **br-wan** (default network): WAN connectivity
+  - IP from router DHCP
+  - All VMs/containers get IPs from router
+  - Managed by NetworkManager
+- **Incus default profile**: Uses br-wan
+- **No DHCP server**: dnsmasq not started
 
-**Advantages**:
-- HAOS gets its own IP directly from your router
-- Accessible from your entire LAN
-- No port forwarding or NAT required
-- Simplified network configuration
-- Same network as other Incus containers/VMs
+**Use cases**:
+- Standard setup with single Ethernet interface
+- Simpler network topology
+- All devices on same LAN as router
 
-For detailed network configuration, see [RaspiVirt-Incus Network Configuration](Image-RaspiVirt-Incus#network-configuration).
+### Network Stack
+
+**NetworkManager**:
+- Manages all bridge connections
+- Configures br-wan (always) and br-lan (if eth1 exists)
+- Replaces netplan for better bridge management
+
+**dnsmasq** (Dual-NIC mode only):
+- DHCP server on br-lan
+- DNS disabled (`port=0`) - no conflict with other DNS servers
+- Clients get Cloudflare DNS (1.1.1.1, 1.0.0.1)
+
+**iptables** (Dual-NIC mode only):
+- NAT masquerade: `br-lan` → `br-wan`
+- Forward rules for internet access
+- Persistent across reboots via `iptables-restore.service`
+
+### Switching Between Modes
+
+The network mode is detected automatically on first boot. To switch modes:
+
+**To enable Dual-NIC mode**:
+1. Add USB Ethernet adapter to Raspberry Pi
+2. Reflash image and boot
+3. System detects eth1 and configures br-lan
+
+**To revert to Single-NIC mode**:
+1. Remove USB Ethernet adapter
+2. Reflash image and boot
+3. System only configures br-wan
+
+**Note**: Network configuration happens during first boot and cannot be changed without reflashing.
 
 ## First-Boot Process
 
-The image uses a **three-stage first-boot process**:
+The image uses a **two-stage first-boot process**:
 
-### Stage 1: rpi-first-boot (Before Network)
-Same as [RaspiVirt-Incus Stage 1](Image-RaspiVirt-Incus#stage-1-rpi-first-boot-before-network):
-- Enable classic network names (eth0, wlan0)
-- Resize root partition
-- Deploy netplan configuration
-- Reboot
+### Stage 1: rpi-first-boot (System Configuration)
 
-### Stage 2: services-first-boot (After Network) - Part 1
-Incus initialization:
-1. Wait for internet connectivity (required for HAOS download)
-2. Initialize Incus with minimal config
-3. Configure Incus HTTPS UI on port 8443
-4. Apply netplan and create br-wan bridge
-5. Attach br-wan to default Incus profile
-
-### Stage 3: services-first-boot - Part 2 (HAOS Deployment)
-
-**Script**: `/usr/local/bin/services-first-boot.sh:67-148`
+**Script**: `/usr/local/bin/rpi-first-boot.sh`
 
 **Actions**:
-1. **Download Home Assistant OS**:
+1. **Enable classic network names**:
+   - Adds `net.ifnames=0 biosdevname=0` to `/boot/firmware/cmdline.txt`
+   - Results in `eth0`, `eth1`, `wlan0` instead of `enp*`, `wlp*`
+
+2. **Disable cloud-init networking**:
+   - Creates `/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg`
+   - NetworkManager takes over network management
+
+3. **Resize root partition**:
+   - Detects root partition
+   - Expands to use full SD card/SSD
+   - Resizes ext4 filesystem
+
+4. **Configure network bridges with NetworkManager**:
+   - **Detect eth1**: Checks if second network interface exists
+   - **If eth1 detected**:
+     - Creates `br-lan` (192.168.10.254/24) on eth1
+     - Creates `br-wan` (DHCP) on eth0
+     - Deploys dnsmasq configuration for br-lan DHCP
+     - Configures NAT masquerade rules (iptables)
+     - Creates `iptables-restore.service` for persistence
+   - **If eth1 not detected**:
+     - Creates `br-wan` (DHCP) on eth0 only
+
+5. **Reboot**: System reboots to apply network configuration
+
+### Stage 2: services-first-boot (Service Deployment)
+
+**Script**: `/usr/local/bin/services-first-boot.sh`
+
+**Part 1: Incus Configuration**
+
+1. **Wait for internet connectivity**:
+   - Pings 8.8.8.8 and 1.1.1.1
+   - Timeout: 5 minutes
+   - Required for HAOS download
+
+2. **Initialize Incus**:
+   - Minimal initialization: `incus admin init --minimal`
+   - Configure HTTPS UI: `incus config set core.https_address :8443`
+
+3. **Configure Incus networks** (adaptive):
+   - **If br-lan exists** (Dual-NIC mode):
+     - Create Incus network for br-lan (default)
+     - Create Incus network for br-wan (optional)
+     - Default profile uses br-lan
+   - **If br-lan missing** (Single-NIC mode):
+     - Create Incus network for br-wan (default)
+     - Default profile uses br-wan
+
+**Part 2: HAOS Deployment**
+
+4. **Download Home Assistant OS**:
    - Downloads `haos_generic-aarch64-16.3.qcow2.xz`
    - Decompresses image
-2. **Import HAOS Image into Incus**:
+
+5. **Import HAOS Image into Incus**:
    - Creates metadata (architecture, description, release)
    - Imports as `haos-aarch64-16.3` alias
    - Cleans up temporary files
-3. **Create HAOS Virtual Machine**:
+
+6. **Create HAOS Virtual Machine**:
    ```bash
    incus init haos-aarch64-16.3 haos --vm
    ```
-4. **Configure VM Resources**:
+
+7. **Configure VM Resources**:
    - CPU: 2 cores (`limits.cpu=2`)
    - RAM: 4GB (`limits.memory=4GB`)
    - Disk: 24GB (`device override root size=24GB`)
-5. **Network Configuration**:
-   - VM inherits eth0 on br-wan from default profile
-   - HAOS gets IP directly from router DHCP
-6. **Enable Auto-Start**:
+   - Secure Boot: Disabled (`security.secureboot=false`)
+
+8. **Network Configuration**:
+   - VM inherits eth0 from default Incus profile
+   - Dual-NIC: Gets IP from br-lan DHCP (192.168.10.x)
+   - Single-NIC: Gets IP from router DHCP
+
+9. **Enable Auto-Start**:
    ```bash
    incus config set haos boot.autostart=true
    ```
-7. **Detect and Passthrough Zigbee Dongle**:
-   - Scans `/dev/ttyUSB*` and `/dev/ttyACM*`
-   - Detects common Zigbee coordinator vendors
-   - Configures USB passthrough to VM
-8. **Start HAOS VM**:
-   ```bash
-   incus start haos
-   ```
-9. **Self-Destruct**:
-   - Disables services-first-boot service
-   - Deletes service and script files
 
-**Why Three Stages?**
-- Stage 1: Prepare storage and network configuration
-- Stage 2: Initialize Incus (requires network)
-- Stage 3: Deploy HAOS (requires internet for download)
+10. **Detect and Passthrough Zigbee Dongle**:
+    - Scans `/dev/ttyUSB*` and `/dev/ttyACM*`
+    - Detects common Zigbee coordinator vendors
+    - Configures USB passthrough to VM
+
+11. **Start HAOS VM**:
+    ```bash
+    incus start haos
+    ```
+
+12. **Self-Destruct**:
+    - Disables services-first-boot service
+    - Deletes service and script files
+
+**Why Two Stages?**
+- Stage 1: Network configuration (adaptive based on eth1 presence)
+- Stage 2: Service deployment (requires internet and network)
 
 ## Zigbee Dongle Detection
 
