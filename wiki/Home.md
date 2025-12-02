@@ -190,6 +190,7 @@ This repository includes the following pre-configured images:
 
 - **[RaspiVirt-Incus](Image-RaspiVirt-Incus)**: Raspberry Pi virtualization platform with Incus container/VM manager
 - **[RaspiVirt-Incus+Docker](Image-RaspiVirt-Incus-Docker)**: RaspiVirt-Incus plus Docker for container orchestration
+- **[RaspiVirt-Incus+HAOS](Image-RaspiVirt-Incus-HAOS)**: Home automation platform with automatic Home Assistant OS deployment, adaptive dual-bridge networking, and Zigbee dongle support
 
 See individual image pages for detailed documentation.
 
@@ -210,6 +211,7 @@ The APT pinning configuration ensures RaspiOS packages (kernel, firmware) are up
 - **[GitHub Actions Workflow](GitHub-Actions)**: Detailed documentation of the automated build system
 - **[RaspiVirt-Incus Image](Image-RaspiVirt-Incus)**: Virtualization platform with Incus
 - **[RaspiVirt-Incus+Docker Image](Image-RaspiVirt-Incus-Docker)**: Incus + Docker platform
+- **[RaspiVirt-Incus+HAOS Image](Image-RaspiVirt-Incus-HAOS)**: Home Assistant OS platform with adaptive networking
 - **[Main README](../README.md)**: Complete project documentation with manual build instructions
 
 ## Getting Help

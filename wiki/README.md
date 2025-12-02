@@ -8,6 +8,7 @@ This directory contains the complete wiki documentation for the RPI-Dev project.
 - **[GitHub-Actions.md](GitHub-Actions.md)**: Detailed documentation of the automated CI/CD build system
 - **[Image-RaspiVirt-Incus.md](Image-RaspiVirt-Incus.md)**: Complete guide for the RaspiVirt-Incus image
 - **[Image-RaspiVirt-Incus-Docker.md](Image-RaspiVirt-Incus-Docker.md)**: Complete guide for the RaspiVirt-Incus+Docker image
+- **[Image-RaspiVirt-Incus-HAOS.md](Image-RaspiVirt-Incus-HAOS.md)**: Complete guide for the RaspiVirt-Incus+HAOS image with Home Assistant OS
 
 ## Publishing to GitHub Wiki
 
@@ -95,6 +96,7 @@ If you prefer to keep documentation in the main repository:
    - [GitHub Actions](wiki/GitHub-Actions.md)
    - [RaspiVirt-Incus Image](wiki/Image-RaspiVirt-Incus.md)
    - [RaspiVirt-Incus+Docker Image](wiki/Image-RaspiVirt-Incus-Docker.md)
+   - [RaspiVirt-Incus+HAOS Image](wiki/Image-RaspiVirt-Incus-HAOS.md)
    ```
 
 ## Maintaining the Wiki
