@@ -40,12 +40,28 @@ Visit http://localhost:3000 to view the documentation site.
 ```bash
 # Generate static site
 npm run generate
-
-# Preview production build
-npm run preview
 ```
 
-The static site will be generated in `../dist/` directory.
+The static site will be generated in `.output/public/` directory.
+
+### Testing Production Build Locally
+
+The production build uses `baseURL: '/raspberry-builds/'` which means all links point to `/raspberry-builds/...`. To test this locally with the correct path structure:
+
+```bash
+# After generating the site, run:
+npm run test:production
+```
+
+This will:
+1. Create a test structure: `dist-test/raspberry-builds/`
+2. Copy the built site into it
+3. Start a server at http://localhost:3000
+4. **Visit http://localhost:3000/raspberry-builds/** (note the path!)
+
+**Important:** The baseURL is conditional:
+- **Development** (`npm run dev`): Uses `/` - visit http://localhost:3000/
+- **Production** (`npm run generate`): Uses `/raspberry-builds/` - visit http://localhost:3000/raspberry-builds/
 
 ## Content Aggregation
 

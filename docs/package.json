@@ -9,7 +9,8 @@
     "generate": "npm run aggregate-content && nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "aggregate-content": "node scripts/aggregate-content.mjs"
+    "aggregate-content": "node scripts/aggregate-content.mjs",
+    "test:production": "bash scripts/test-production.sh"
   },
   "dependencies": {
     "@nuxt/content": "^2.13.2",

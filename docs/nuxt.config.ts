@@ -6,6 +6,12 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  router: {
+    options: {
+      strict: false
+    }
+  },
+
   content: {
     highlight: {
       theme: {
@@ -23,7 +29,7 @@ export default defineNuxtConfig({
   },
 
   app: {
-    baseURL: '/raspberry-builds/',
+    baseURL: process.env.NODE_ENV === 'production' ? '/raspberry-builds/' : '/',
     head: {
       title: 'Raspberry Pi Builds Documentation',
       meta: [
@@ -35,15 +41,17 @@ export default defineNuxtConfig({
         }
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/raspberry-builds/favicon.ico' }
+        { rel: 'icon', type: 'image/x-icon', href: `${process.env.NODE_ENV === 'production' ? '/raspberry-builds' : ''}/favicon.ico` }
       ]
     }
   },
 
   nitro: {
     preset: 'static',
-    output: {
-      publicDir: '../dist'
+    prerender: {
+      failOnError: false,
+      crawlLinks: true,
+      ignore: ['/api/', '/_nuxt/']
     }
   },
 

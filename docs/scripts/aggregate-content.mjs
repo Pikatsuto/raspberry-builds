@@ -31,11 +31,48 @@ await fs.mkdir(resolve(CONTENT_DIR, 'docs'), { recursive: true })
 await fs.mkdir(resolve(CONTENT_DIR, 'images'), { recursive: true })
 
 /**
+ * Fix markdown links for Nuxt Content compatibility
+ */
+function fixMarkdownLinks(content, category) {
+  let fixed = content
+
+  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/docs/Page-Name) or [Page Name](/images/Page-Name)
+  fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (match, pageName) => {
+    const slug = pageName.replace(/\s+/g, '-')
+    const cat = slug.startsWith('Image-') ? 'images' : 'docs'
+    return `[${pageName}](/${cat}/${slug})`
+  })
+
+  // Fix relative wiki links: [text](Page-Name) -> [text](/docs/Page-Name) or [text](/images/Page-Name)
+  fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (match, text, link) => {
+    // Skip if it's already a proper link
+    if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
+      return match
+    }
+    // Remove .md extension if present
+    const cleanLink = link.replace(/\.md$/, '')
+    const cat = cleanLink.startsWith('Image-') ? 'images' : 'docs'
+    return `[${text}](/${cat}/${cleanLink})`
+  })
+
+  // Fix GitHub URLs that point to the wiki
+  fixed = fixed.replace(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/wiki\/([^\s)]+)/g, (match, page) => {
+    const cat = page.startsWith('Image-') ? 'images' : 'docs'
+    return `/${cat}/${page}`
+  })
+
+  return fixed
+}
+
+/**
  * Process markdown content to add frontmatter
  */
 function addFrontmatter(content, title, category, description = '') {
   // Remove existing frontmatter if present
   const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n/, '')
+
+  // Fix markdown links
+  const fixedContent = fixMarkdownLinks(withoutFrontmatter, category)
 
   const frontmatter = `---
 title: ${title}
@@ -44,7 +81,7 @@ description: ${description}
 ---
 
 `
-  return frontmatter + withoutFrontmatter
+  return frontmatter + fixedContent
 }
 
 /**

@@ -5,6 +5,11 @@
 *.qcow2
 *.iso
 
+issues
+discussions
+releases
+actions
+
 # Except seed.img which is small
 !cloudinit/seed.img
 
