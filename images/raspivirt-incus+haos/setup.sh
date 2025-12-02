@@ -31,8 +31,7 @@ apt install -y \
     bridge-utils \
     net-tools \
     iptables \
-    parted \
-    dnsmasq
+    parted
 
 # Install RaspiOS kernel and firmware
 echo "[3/9] Installing Raspberry Pi kernel and firmware..."
@@ -101,11 +100,6 @@ Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/zabbly.asc
 
 EOF'
-
-# Prepare dnsmasq directory for br-lan DHCP (will be configured if eth1 exists)
-echo "Preparing dnsmasq configuration directory..."
-mkdir -p /etc/dnsmasq.d/
-# Keep dnsmasq config in /root/setupfiles/ for rpi-first-boot.sh to deploy if eth1 exists
 
 # Install first-boot service for partition resize and network configuration
 echo "Installing first-boot service..."
@@ -190,7 +184,6 @@ EOF
 echo "[9/9] Enabling services at boot..."
 systemctl enable NetworkManager
 systemctl enable rpi-first-boot.service || true
-systemctl enable services-first-boot.service || true
 systemctl enable update-motd-ip.service || true
 systemctl enable update-motd-ip.path || true
 systemctl enable incus
