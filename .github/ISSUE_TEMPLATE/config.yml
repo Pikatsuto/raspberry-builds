@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Wiki Documentation
+    url: https://github.com/Pikatsuto/raspberry-builds/wiki
+    about: Read the technical documentation for detailed information
+  - name: Discussions
+    url: https://github.com/Pikatsuto/raspberry-builds/discussions
+    about: Ask questions and discuss ideas with the community

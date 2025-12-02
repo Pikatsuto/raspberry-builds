@@ -95,7 +95,7 @@ jobs:
             qemu-efi-aarch64
 
       - name: Download base images from stage 1
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: base-images-${{ matrix.image }}
 
@@ -142,13 +142,13 @@ jobs:
           ls -la /dev/loop* || true
 
       - name: Download RaspiOS image from stage 1
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: base-images-${{ matrix.image }}
           pattern: '*.img'
 
       - name: Download configured Debian image from stage 2
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: debian-configured-${{ matrix.image }}
 
@@ -183,7 +183,7 @@ jobs:
           sudo mv pishrink.sh /usr/local/bin/
 
       - name: Download hybrid image from stage 3
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: hybrid-image-${{ matrix.image }}
 
@@ -213,9 +213,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
 
       - name: Download all compressed images
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: final-image-*
           merge-multiple: true
@@ -225,32 +227,92 @@ jobs:
           echo "Created images:"
           ls -lh *.img.xz || true
 
-      - name: Generate release name
+      - name: Determine build type
+        id: build_type
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "type=cron" >> $GITHUB_OUTPUT
+            echo "🕐 Cron build detected - will update existing release"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "type=push" >> $GITHUB_OUTPUT
+            echo "📝 Push build detected - will create new release with changelog"
+          else
+            echo "type=manual" >> $GITHUB_OUTPUT
+            echo "🔧 Manual build detected - will create new release"
+          fi
+
+      - name: Generate release name and tag
         id: release_info
         run: |
-          # Release name based on date
           RELEASE_DATE=$(date +'%Y-%m-%d')
           RELEASE_TIME=$(date +'%H%M')
-          RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
-          RELEASE_NAME="Build ${RELEASE_DATE} ${RELEASE_TIME}"
 
           # Determine if it's a pre-release
           if [ "${{ github.ref_name }}" = "main" ]; then
             IS_PRERELEASE="false"
-            RELEASE_NAME="Release ${RELEASE_DATE}"
           else
             IS_PRERELEASE="true"
-            RELEASE_NAME="Pre-release ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+          fi
+
+          # For cron builds, use fixed daily tag
+          if [ "${{ steps.build_type.outputs.type }}" = "cron" ]; then
+            RELEASE_TAG="daily-${RELEASE_DATE}"
+            RELEASE_NAME="Daily Build ${RELEASE_DATE}"
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              RELEASE_NAME="Daily Build ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+            fi
+          else
+            # For push/manual builds, use timestamp tag
+            RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
+            if [ "$IS_PRERELEASE" = "false" ]; then
+              RELEASE_NAME="Release ${RELEASE_DATE}"
+            else
+              RELEASE_NAME="Pre-release ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+            fi
           fi
 
           echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
           echo "name=${RELEASE_NAME}" >> $GITHUB_OUTPUT
           echo "prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
           echo "date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
+          echo "time=${RELEASE_TIME}" >> $GITHUB_OUTPUT
 
-      - name: Create Release and Upload Assets
+      - name: Generate changelog (for push builds)
+        if: steps.build_type.outputs.type == 'push'
+        id: changelog
         run: |
-          # Create release body
+          # Get the last release tag
+          LAST_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous release found, generating full changelog"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h) - %an" --no-merges)
+          else
+            echo "Generating changelog since $LAST_TAG"
+            CHANGELOG=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h) - %an" --no-merges)
+          fi
+
+          # Save changelog to file
+          if [ -n "$CHANGELOG" ]; then
+            echo "### 📝 Changelog" > changelog.md
+            echo "" >> changelog.md
+            echo "$CHANGELOG" >> changelog.md
+            echo "" >> changelog.md
+          else
+            echo "### 📝 Changelog" > changelog.md
+            echo "" >> changelog.md
+            echo "No new commits since last release." >> changelog.md
+            echo "" >> changelog.md
+          fi
+
+          echo "Changelog generated:"
+          cat changelog.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release body (push builds)
+        if: steps.build_type.outputs.type == 'push'
+        run: |
           cat > release_body.md << 'EOF'
           ## 🚀 Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
 
@@ -259,6 +321,15 @@ jobs:
           ### 📦 Available Images
 
           All images in this release are ready to flash to SD/SSD.
+
+          EOF
+
+          # Add changelog if it exists
+          if [ -f changelog.md ]; then
+            cat changelog.md >> release_body.md
+          fi
+
+          cat >> release_body.md << 'EOF'
 
           ### 📝 Flash an Image
 
@@ -282,7 +353,88 @@ jobs:
           See [README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md) for more information.
           EOF
 
-          # Create release with .img.xz files
+      - name: Create release body (cron/manual builds)
+        if: steps.build_type.outputs.type != 'push'
+        run: |
+          cat > release_body.md << 'EOF'
+          ## 🚀 Raspberry Pi Hybrid Images - Daily Build
+
+          Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
+
+          **🕐 Last updated:** `${{ steps.release_info.outputs.date }}` at `${{ steps.release_info.outputs.time }}`
+
+          ### 📦 Available Images
+
+          All images in this release are ready to flash to SD/SSD.
+
+          ### 📝 Flash an Image
+
+          ```bash
+          # Decompress and flash
+          xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+          sync
+          ```
+
+          **⚠️ Replace `/dev/sdX` with your device!**
+
+          ### 🔧 Build Info
+
+          - **Branch** : `${{ github.ref_name }}`
+          - **Last Commit** : `${{ github.sha }}`
+          - **Build Date** : `${{ steps.release_info.outputs.date }}` at `${{ steps.release_info.outputs.time }}`
+          - **Workflow** : [Build #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ### 📚 Documentation
+
+          See [README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md) for more information.
+          EOF
+
+      - name: Update existing release (cron builds)
+        if: steps.build_type.outputs.type == 'cron'
+        run: |
+          # Check if release exists
+          if gh release view ${{ steps.release_info.outputs.tag }} >/dev/null 2>&1; then
+            echo "Release ${{ steps.release_info.outputs.tag }} exists, updating..."
+
+            # Delete old assets
+            echo "Deleting old assets..."
+            gh release view ${{ steps.release_info.outputs.tag }} --json assets --jq '.assets[].name' | while read asset; do
+              echo "Deleting $asset"
+              gh release delete-asset ${{ steps.release_info.outputs.tag }} "$asset" --yes || true
+            done
+
+            # Upload new assets
+            echo "Uploading new assets..."
+            gh release upload ${{ steps.release_info.outputs.tag }} *.img.xz --clobber
+
+            # Update release notes
+            echo "Updating release notes..."
+            gh release edit ${{ steps.release_info.outputs.tag }} \
+              --notes-file release_body.md \
+              --title "${{ steps.release_info.outputs.name }}"
+
+            echo "✅ Release ${{ steps.release_info.outputs.tag }} updated successfully"
+          else
+            echo "Release ${{ steps.release_info.outputs.tag }} does not exist, creating..."
+            PRERELEASE_FLAG=""
+            if [ "${{ steps.release_info.outputs.prerelease }}" = "true" ]; then
+              PRERELEASE_FLAG="--prerelease"
+            fi
+
+            gh release create ${{ steps.release_info.outputs.tag }} \
+              --title "${{ steps.release_info.outputs.name }}" \
+              --notes-file release_body.md \
+              $PRERELEASE_FLAG \
+              *.img.xz
+
+            echo "✅ Release ${{ steps.release_info.outputs.tag }} created successfully"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create new release (push/manual builds)
+        if: steps.build_type.outputs.type != 'cron'
+        run: |
           PRERELEASE_FLAG=""
           if [ "${{ steps.release_info.outputs.prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
@@ -293,6 +445,8 @@ jobs:
             --notes-file release_body.md \
             $PRERELEASE_FLAG \
             *.img.xz
+
+          echo "✅ Release ${{ steps.release_info.outputs.tag }} created successfully"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           

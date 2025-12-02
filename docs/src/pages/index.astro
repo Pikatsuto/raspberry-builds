@@ -1,0 +1,135 @@
+---
+import Layout from '../layouts/Layout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout title="Home">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Welcome to Raspberry Pi Builds
+    </h1>
+
+    <div class="prose dark:prose-invert max-w-none">
+      <p class="text-lg text-gray-700 dark:text-gray-300">
+        A toolchain for creating hybrid Raspberry Pi images that combine Raspberry Pi OS boot/firmware
+        with custom Debian ARM64 root filesystems.
+      </p>
+
+      <h2 class="text-2xl font-bold mt-8 mb-4">Quick Start</h2>
+
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 my-6">
+        <div class="flex items-start">
+          <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          <div>
+            <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-200 mb-1">Getting Started</h3>
+            <p class="text-blue-800 dark:text-blue-300">Build your first custom Raspberry Pi image in minutes</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 hover:shadow-lg transition-shadow">
+          <div class="flex items-center space-x-2 mb-4">
+            <svg class="w-6 h-6 mt-4 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Documentation</h3>
+          </div>
+          <p class="text-gray-600 dark:text-gray-300 mb-4">
+            Learn how to build, customize, and deploy hybrid Raspberry Pi images
+          </p>
+          <a
+            href={`${base}/content/docs/Home`}
+            class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Read the Docs
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+
+        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 hover:shadow-lg transition-shadow">
+          <div class="flex items-center space-x-2 mb-4">
+            <svg class="w-6 h-6 mt-4 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Pre-built Images</h3>
+          </div>
+          <p class="text-gray-600 dark:text-gray-300 mb-4">
+            Download ready-to-use images from GitHub Releases
+          </p>
+          <a
+            href={`${base}/releases`}
+            class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            View Releases
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <h2 class="text-2xl font-bold mt-6 mb-4">Features</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+        <div class="text-center p-4">
+          <svg class="w-12 h-12 mx-auto mb-3 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Full Hardware Support</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            Raspberry Pi kernel and firmware for complete hardware compatibility
+          </p>
+        </div>
+
+        <div class="text-center p-4">
+          <svg class="w-12 h-12 mx-auto mb-3 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Custom Debian Userspace</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            Pure Debian ARM64 userspace with APT package management
+          </p>
+        </div>
+
+        <div class="text-center p-4">
+          <svg class="w-12 h-12 mx-auto mb-3 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Automated Builds</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            CI/CD pipeline with GitHub Actions for continuous image builds
+          </p>
+        </div>
+      </div>
+
+      <h2 class="text-2xl font-bold mt-6 mb-4">Latest Images</h2>
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+        <div class="flex items-start">
+          <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-200 mb-2">Download Pre-built Images</h3>
+            <p class="text-blue-800 dark:text-blue-300 mb-4">
+              Browse all available releases including stable versions and pre-releases
+            </p>
+            <a
+              href={`${base}/releases`}
+              class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              View All Releases
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

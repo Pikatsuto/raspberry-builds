@@ -1,123 +1,44 @@
-# Raspberry Pi - Hybrid Debian ARM64 Image
+# RPI-Dev - Raspberry Pi Hybrid Image Builder
 
-## Project Description
+Automated build system for creating Raspberry Pi images with **Raspberry Pi OS hardware support** + **custom Debian ARM64 rootfs**.
 
-This project creates hybrid images for Raspberry Pi (ARM64) combining:
-- **Raspberry Pi OS Boot/Firmware**: For complete Raspberry Pi hardware compatibility
-- **Custom Debian ARM64 Rootfs**: For a pure Debian system
+[![Build Images](https://github.com/YOUR_USERNAME/rpi-dev/actions/workflows/build-images.yml/badge.svg)](https://github.com/YOUR_USERNAME/rpi-dev/actions/workflows/build-images.yml)
+[![License](https://img.shields.io/badge/license-As--Is-blue.svg)](LICENSE)
 
-The goal is to work around the limitations of the standard Debian kernel which doesn't yet support all Raspberry Pi hardware features while maintaining a complete Debian environment. This is especially important for Raspberry Pi which uses the RP1 chip for critical I/O.
+---
 
-### Why This Approach?
+## Why This Project?
 
-The Raspberry Pi kernel includes drivers for all Raspberry Pi hardware (including the **RP1** chip on Pi for Ethernet, USB, GPIO). These drivers are not yet integrated into the mainline Linux kernel. This solution allows you to:
+The Raspberry Pi uses specialized hardware (RP1 chip) for critical I/O that requires kernel drivers not yet in mainline Linux. This project solves that by:
 
-✅ Keep full Raspberry Pi hardware support (Ethernet, WiFi, GPIO, USB)
-✅ Use a pure Debian rootfs with your custom configurations
-✅ Leverage cloud-init for automatic initialization
-✅ Develop and test in QEMU before flashing to SD card
+- ✅ Maintaining **full Raspberry Pi hardware support** (Ethernet, WiFi, GPIO, USB via RP1)
+- ✅ Using **pure Debian ARM64** rootfs for a clean, standard environment
+- ✅ Enabling **automatic kernel/firmware updates** via APT with proper pinning
+- ✅ Supporting **custom image configurations** with automated builds via GitHub Actions
 
-## Prerequisites
+## Quick Start
 
-### Required Packages
+### For Users: Download Pre-Built Images
 
-```bash
-sudo apt install -y \
-    qemu-system-aarch64 \
-    qemu-utils \
-    qemu-efi-aarch64 \
-    parted \
-    e2fsprogs \
-    dosfstools \
-    rsync \
-    xz-utils \
-    genisoimage
-```
-
-### Base Images
-
-1. **Raspberry Pi OS Lite ARM64**:
-   ```bash
-   wget https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-11-24/2025-11-24-raspios-trixie-arm64-lite.img.xz
-   xz -d 2024-11-19-raspios-bookworm-arm64-lite.img.xz
-   ```
-
-2. **Debian ARM64 Generic Cloud**:
-   ```bash
-   wget https://cloud.debian.org/images/cloud/trixie-backports/daily/latest/debian-13-backports-genericcloud-arm64-daily.raw
-   # Or use the .raw file directly if available
-   ```
-
-## Automated Multi-Image Build (Recommended)
-
-### Multi-Image Management
-
-This project supports multiple image configurations. Each image has its own folder in `images/`:
+1. Go to **[Releases](../../releases)**
+2. Download the `.img.xz` file for your desired image
+3. Flash to SD card or SSD:
 
 ```bash
-# List available images
-./bin/autobuild --list-images
-
-# Build a specific image
-./bin/autobuild --image exemple
-
-# Build all images
-./bin/autobuild --all-images
+xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+sync
 ```
 
-### Autobuild Mode - All in One Command
+**⚠️ Replace `/dev/sdX` with your actual device (check with `lsblk`)**
 
-**This script automatically performs:**
+### For Developers: Fork and Customize
 
-1. ✓ Download RaspiOS and Debian images
-2. ✓ Create `setup.iso` with your configuration script
-3. ✓ Launch QEMU with cloud-init
-4. ✓ Automatic setup execution (package installation, configuration)
-5. ✓ Automatic QEMU shutdown
-6. ✓ Create hybrid Raspberry Pi image
-7. ✓ Compress with PiShrink (.xz)
-
-**Result**: A ready-to-flash `rpi-XXX.img.xz` image!
-
-### Autobuild Script Options
-
-```bash
-# List available images
-./bin/autobuild --list-images
-
-# Build a specific image
-./bin/autobuild --image exemple
-
-# Build all images at once
-./bin/autobuild --all-images
-
-# Skip download (use existing images)
-./bin/autobuild --image exemple --skip-download
-
-# Skip QEMU (use already configured Debian image)
-./bin/autobuild --image exemple --skip-qemu
-
-# Skip PiShrink compression
-./bin/autobuild --image exemple --skip-compress
-
-# Full help
-./bin/autobuild --help
-```
-
-### Creating a New Image
-
-1. **Copy the example image**
+1. **Fork this repository**
+2. **Create your custom image**:
    ```bash
-   cp -r images/exemple images/my-image
-   ```
-
-2. **Modify the configuration** (`images/my-image/config.sh`)
-   ```bash
-   OUTPUT_IMAGE="rpi-my-image.img"
-   IMAGE_SIZE="16G"
-   QEMU_RAM="8G"
-   QEMU_CPUS="4"
-   DESCRIPTION="My awesome custom image"
+   cp -r images/raspivirt-incus images/my-custom-image
+   vim images/my-custom-image/config.sh   # Configure image size, resources
+   vim images/my-custom-image/setup.sh    # Add your packages and config
    ```
 
 3. **Customize the setup** (`images/my-image/setup.sh`)
@@ -250,309 +171,193 @@ qemu-system-aarch64 \
 # Via SSH (once the VM has started)
 ssh -p 2222 pi@localhost
 
-# Default password (defined in cloudinit/user-data)
-# User: pi
-# Password: raspberry
+| Image | Description | Size | Download |
+|-------|-------------|------|----------|
+| **[RaspiVirt-Incus](../../wiki/Image-RaspiVirt-Incus)** | Incus container/VM manager with KVM, web UI, and br-wan networking | 500 MB | [Latest](../../releases) |
+| **[RaspiVirt-Incus+Docker](../../wiki/Image-RaspiVirt-Incus-Docker)** | RaspiVirt-Incus + Docker + Portainer + Watchtower | 700 MB | [Latest](../../releases) |
+
+**[📖 Full image documentation in the Wiki](../../wiki)**
+
+## Documentation
+
+Complete documentation is available in the **[GitHub Wiki](../../wiki)**:
+
+- **[🏠 Home](../../wiki/Home)** - Project overview and quick start
+- **[⚙️ GitHub Actions](../../wiki/GitHub-Actions)** - Automated build system documentation
+- **[📦 RaspiVirt-Incus](../../wiki/Image-RaspiVirt-Incus)** - Incus virtualization platform
+- **[🐳 RaspiVirt-Incus+Docker](../../wiki/Image-RaspiVirt-Incus-Docker)** - Incus + Docker platform
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Download Base Images (RaspiOS + Debian)                  │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 2. QEMU Setup (Native ARM64)                                │
+│    - Execute setup.sh in QEMU                               │
+│    - Install RaspiOS kernel/firmware via APT                │
+│    - Install custom packages and configuration              │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Merge (Partition-level)                                  │
+│    - Keep RaspiOS boot partition (firmware)                 │
+│    - Replace root partition with configured Debian          │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Compress with PiShrink                                   │
+│    - Shrink filesystem and compress to .xz                  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-#### Modify Cloud-init Configuration
+**[📖 See detailed architecture in the Wiki](../../wiki/Home#how-it-works)**
 
-If you need to modify the cloud-init configuration:
+## Building Locally
 
+Install dependencies:
 ```bash
-# 1. Edit the files
-nano cloudinit/user-data    # User configuration, SSH keys, etc.
-nano cloudinit/meta-data    # Hostname, instance-id
-
-# 2. Recreate the seed.img image
-genisoimage -output cloudinit/seed.img \
-    -volid cidata \
-    -joliet -rock \
-    cloudinit/user-data \
-    cloudinit/meta-data
-
-# 3. Relaunch QEMU with the new configuration
+sudo apt install -y qemu-system-aarch64 qemu-utils parted \
+    e2fsprogs dosfstools rsync xz-utils genisoimage
 ```
 
-#### Customize the Debian Rootfs
-
-Once in the QEMU VM, you can install packages and configure the system:
-
+Build an image:
 ```bash
-# Connect to the VM
-ssh -p 2222 pi@localhost
+# Build specific image
+./bin/autobuild --image raspivirt-incus
 
-# Install your packages
-sudo apt update
-sudo apt install -y vim git htop docker.io python3-pip
+# Build all images
+./bin/autobuild --all-images
 
-# Configure your services
-# ...
-
-# Shut down the VM
-sudo poweroff
+# List available images
+./bin/autobuild --list-images
 ```
 
-The `debian-13-arm64.raw` image now contains your customizations.
+**[📖 See full build documentation in the Wiki](../../wiki/Home#building-locally)**
 
-### 2. Creating the Hybrid Image for Raspberry Pi
+## Features
 
-Once your Debian rootfs is configured and tested, create the final image for Raspberry Pi:
+### Automated CI/CD
+- ✅ **Daily builds** at 2:00 AM UTC with latest base images
+- ✅ **Automatic releases** on push to main branch
+- ✅ **Parallel builds** for multiple images
+- ✅ **Pre-release testing** on feature branches
 
+**[📖 See GitHub Actions documentation](../../wiki/GitHub-Actions)**
+
+### Hardware Support
+- ✅ Gigabit Ethernet (RP1)
+- ✅ WiFi + Bluetooth
+- ✅ GPIO (40 pins)
+- ✅ USB 3.0 (RP1)
+- ✅ PCIe (M.2 SSD)
+- ✅ HDMI (dual 4K)
+- ✅ Camera/DSI/CSI
+- ✅ Hardware acceleration
+
+### System Updates
+Automatic kernel and firmware updates via APT:
 ```bash
-unxz 2025-11-24-raspios-trixie-arm64-lite.img.xz
-
-./bin/merge-debian-raspios.sh \
-    -o rpi-hybrid.img \
-    -s 8G \
-    2025-11-24-raspios-trixie-arm64-lite.img \
-    debian-13-backports-genericcloud-arm64-daily.raw
+sudo apt update && sudo apt upgrade -y
 ```
 
-#### Available Options
-
-- `-o, --output FILE`: Output image name (default: `hybrid-debian-raspios.img`)
-- `-s, --size SIZE`: Final image size (default: auto = Debian size + 1-2GB)
-  - Examples: `8G`, `16G`, `4096M`
-- `-k, --keep-kernel`: **NOT RECOMMENDED** - Keep Debian kernel (RP1 won't work)
-- `-h, --help`: Display help
-
-#### What Does the Merge Script Do?
-
-The script performs the following operations:
-
-1. ✓ Decompress RaspiOS image if necessary (.xz)
-2. ✓ Convert Debian image to raw format if necessary (qcow2, etc.)
-3. ✓ Create output image based on RaspiOS
-4. ✓ Resize image to desired size
-5. ✓ Backup critical RaspiOS components:
-   - Kernel and modules (`/lib/modules`)
-   - Hardware firmware (`/lib/firmware`)
-   - Boot configuration (`/boot/firmware`)
-   - Partition table (`/etc/fstab`)
-6. ✓ Completely replace rootfs with your Debian
-7. ✓ Restore backed-up RaspiOS components
-8. ✓ Clean up and finalize the image
-
-**Result**: A bootable image with the RaspiOS kernel but Debian userspace.
-
-### 3. Image Compression with PiShrink
-
-The created image occupies the full specified size (e.g., 8GB). To reduce it before distribution:
-
-#### Installing PiShrink
-
-```bash
-wget https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
-chmod +x pishrink.sh
-sudo mv pishrink.sh /usr/local/bin/
-```
-
-#### Using PiShrink
-
-```bash
-# Shrink the image (removes empty space)
-sudo pishrink.sh rpi-hybrid.img
-
-# Shrink and compress to .xz in one step
-sudo pishrink.sh -Z rpi-hybrid.img
-
-# Result: rpi-hybrid.img.xz (much smaller)
-```
-
-#### Useful PiShrink Options
-
-- `-z`: Compress image to .xz after shrinking
-- `-a`: Compress to .gz instead of .xz (faster, less compact)
-- `-v`: Verbose mode (show details)
-
-**Example savings**: An 8GB image can be reduced to ~2GB after PiShrink, then ~800MB after .xz compression.
-
-### 4. Flashing the Image to SD Card
-
-#### With uncompressed image
-
-```bash
-sudo dd if=rpi-hybrid.img of=/dev/sdX bs=4M status=progress conv=fsync
-sync
-```
-
-#### With compressed image (.xz)
-
-```bash
-# Decompress and flash in one command
-xz -dc rpi-hybrid.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
-sync
-```
-
-**⚠️ WARNING**: Replace `/dev/sdX` with the correct device (verify with `lsblk`)
-
-#### Verify the Device
-
-```bash
-# List disks
-lsblk
-
-# Example output:
-# NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
-# sda      8:0    0 238.5G  0 disk
-# ├─sda1   8:1    0   512M  0 part /boot
-# └─sda2   8:2    0   238G  0 part /
-# sdb      8:16   1  29.7G  0 disk    <- Your SD card
-# └─sdb1   8:17   1  29.7G  0 part
-```
-
-## Complete Workflow Summary
-
-```bash
-# 1. Develop and test in QEMU
-qemu-system-aarch64 -M virt -cpu cortex-a72 -m 8G -smp 4 \
-    -bios /usr/share/edk2/aarch64/QEMU_CODE.fd \
-    -drive file=debian-13-backports-genericcloud-arm64-daily.raw,format=raw,if=virtio \
-    -drive file=cloudinit/seed.img,format=raw,if=virtio \
-    -device virtio-net-pci,netdev=net0 \
-    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-    -nographic
-
-# 2. Customize via SSH
-ssh -p 2222 pi@localhost
-
-# 3. Create hybrid Raspberry Pi image
-./bin/merge-debian-raspios.sh \
-    -o rpi-custom.img -s 8G \
-    2025-11-24-raspios-trixie-arm64-lite.img \
-    debian-13-arm64.raw
-
-# 4. Shrink and compress
-sudo pishrink.sh -z rpi-custom.img
-
-# 5. Flash to SD
-xz -dc rpi-custom.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
-sync
-
-# 6. Insert SD into Raspberry Pi and boot!
-```
+APT pinning ensures RaspiOS packages (kernel/firmware) update from RaspiOS repository while keeping Debian userspace packages from Debian.
 
 ## Project Structure
 
 ```
 rpi-dev/
 ├── bin/
-│   ├── autobuild                      # 🚀 Automated multi-image build script
-│   └── merge-debian-raspios.sh        # RaspiOS + Debian merge script
-├── images/                            # 📁 Custom images folder
-│   ├── README.md                      # Image creation guide
-│   └── exemple/
-│       ├── config.sh                  # Image configuration
-│       ├── setup.sh                   # Setup script executed in QEMU
-│       ├── setupfiles/                # Files copied to the image
-│       └── cloudinit/                 # Cloud-init configuration for this image
-│           ├── user-data              # Users, SSH, passwords
-│           ├── meta-data              # Hostname, instance-id
-│           └── seed.img               # Automatically generated
-├── 2025-11-24-raspios-trixie-arm64-lite.img  # RaspiOS image (downloaded)
-├── debian-13-backports-genericcloud-arm64-daily.raw  # Debian image (downloaded)
-├── debian-13-arm64.raw                # Working copy of Debian image
-├── setup.iso                          # ISO containing setup + setupfiles (generated)
-├── rpi-*.img                          # Final hybrid images (generated)
-├── rpi-*.img.xz                       # Compressed ready-to-flash images (generated)
-├── CLAUDE.md                          # Technical documentation for Claude Code
-└── README.md                          # This file
+│   ├── autobuild                 # Automated build script
+│   └── merge-debian-raspios.sh   # Merge script
+├── images/                       # Image configurations
+│   ├── raspivirt-incus/
+│   └── raspivirt-incus+docker/
+├── wiki/                         # Wiki documentation (auto-synced)
+└── .github/
+    └── workflows/
+        ├── build-images.yml      # Multi-stage build workflow
+        └── sync-wiki.yml         # Wiki synchronization
 ```
 
-## Supported Features on Raspberry Pi
+## Creating Custom Images
 
-With this approach, you get:
+1. **Copy an existing image template**:
+   ```bash
+   cp -r images/raspivirt-incus images/my-image
+   ```
 
-✅ **Gigabit Ethernet** (via RP1)
-✅ **WiFi** (BCM43455)
-✅ **Bluetooth**
-✅ **GPIO** (40 pins)
-✅ **USB 3.0** (via RP1)
-✅ **PCIe** (for M.2 SSD)
-✅ **HDMI** (dual 4K)
-✅ **Camera/DSI/CSI**
-✅ **Hardware acceleration** (VideoCore VII)
+2. **Configure** (`images/my-image/config.sh`):
+   - `OUTPUT_IMAGE`: Filename
+   - `IMAGE_SIZE`: Final size (e.g., "8G")
+   - `QEMU_RAM`, `QEMU_CPUS`: Build resources
 
-## Troubleshooting
+3. **Customize** (`images/my-image/setup.sh`):
+   - Add package installations
+   - Configure services
+   - Apply custom settings
 
-### QEMU Won't Start
+4. **Add files** to `setupfiles/`:
+   - Configuration files
+   - Scripts
+   - Certificates
 
-```bash
-# Check that UEFI firmware is installed
-ls /usr/share/edk2/aarch64/QEMU_CODE.fd
+5. **Build**:
+   ```bash
+   ./bin/autobuild --image my-image
+   ```
 
-# If missing, install:
-sudo apt install qemu-efi-aarch64
-```
+**[📖 See detailed customization guide in the Wiki](../../wiki/Home#creating-custom-images)**
 
-### Raspberry Pi Image Won't Boot
+## Releases
 
-- Verify you **did not** use the `--keep-kernel` option
-- The RaspiOS kernel is **required** for RP1 support
-- Verify the SD card was properly flashed with `sync`
+Pre-built images are automatically released via GitHub Actions:
 
-### No Network Connection on Raspberry Pi
+- **Stable releases** (main branch) - Production-ready
+- **Pre-releases** (other branches) - Experimental/testing
+- **Daily builds** - Latest Debian/RaspiOS updates
 
-- If you used `--keep-kernel`, the RP1 drivers are not loaded
-- Recreate the image **without** `--keep-kernel`
+**[⬇️ Download from Releases](../../releases)**
 
-### Image Is Too Large
+## Technical Details
 
-- Use PiShrink to reduce unused space
-- Specify a smaller image size with `-s` (e.g., `-s 4G`)
+- **Base OS**: Debian 13 (Trixie) ARM64
+- **Kernel**: Raspberry Pi OS kernel (latest)
+- **Build System**: GitHub Actions with 4-stage pipeline
+- **Boot Mode**: Cloud-init or first-boot systemd service
+- **Package Management**: APT with repository pinning
 
-## Automated Releases via GitHub Actions
-
-This project uses GitHub Actions to automatically build all images and create releases.
-
-### Download Pre-built Images
-
-Instead of building yourself, download images from [Releases](../../releases):
-
-1. Go to the **Releases** tab
-2. Download the desired `.img.xz` image
-3. Flash directly to your SD card
-
-```bash
-# Download from release (example)
-wget https://github.com/YOUR_USERNAME/rpi-dev/releases/download/v2025-01-15/rpi-exemple.img.xz
-
-# Flash
-xz -dc rpi-exemple.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
-sync
-```
-
-### Release Types
-
-- **Release (`main` branch)**: Stable, tested images
-- **Pre-release (other branches)**: Experimental, development images
-
-### Build Frequency
-
-Images are automatically built:
-- On **every push** to any branch
-- **Daily** at 2:00 AM UTC (to get latest Debian/RaspiOS updates)
-- **Manually** via the GitHub Actions interface
-
-### Release Contents
-
-Each release contains:
-- All `.img.xz` files (compressed ready-to-flash images)
-- Build information (branch, commit, date)
-- Flashing instructions
-- Link to build workflow
-
-For more details on the CI/CD workflow, see [`.github/README.md`](.github/README.md).
+**[📖 See CLAUDE.md for complete technical documentation](CLAUDE.md)**
 
 ## Resources
 
+- **[📖 Wiki](../../wiki)** - Complete documentation
+- **[📦 Releases](../../releases)** - Download pre-built images
+- **[🔧 Issues](../../issues)** - Report bugs or request features
+- **[🚀 Actions](../../actions)** - View build status
+
+### External Links
 - [Raspberry Pi OS Downloads](https://www.raspberrypi.com/software/operating-systems/)
 - [Debian Cloud Images](https://cloud.debian.org/images/cloud/)
-- [PiShrink](https://github.com/Drewsif/PiShrink)
-- [Cloud-init Documentation](https://cloudinit.readthedocs.io/)
-- [QEMU ARM Documentation](https://www.qemu.org/docs/master/system/target-arm.html)
+- [Incus Documentation](https://linuxcontainers.org/incus/)
+- [Docker Documentation](https://docs.docker.com/)
+
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test locally with `./bin/autobuild`
+5. Submit a pull request
 
 ## License
 
 This project is provided "as is" without warranty. Use at your own risk.
+
+---
+
+**Made with ❤️ for the Raspberry Pi community**
