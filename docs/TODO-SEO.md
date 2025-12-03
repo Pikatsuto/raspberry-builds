@@ -233,6 +233,31 @@
 - ✅ Résout 2 méta-descriptions dupliquées (2/12 pages = 16.67% → 0%)
 - ✅ Corrige 1 title < 30 caractères (1/12 pages = 8.33% → 0%)
 
+## ✅ Commit 6: H2 Headings - Pages Releases (2025-12-04)
+
+**Fichiers modifiés:**
+- `docs/src/pages/releases.astro` (lignes 31-44)
+- `docs/src/pages/pre-releases.astro` (lignes 31-44)
+
+**Changements:**
+
+1. **releases.astro** - Ajout de 2 sections H2 descriptives:
+   - H2: "About Stable Releases" (ligne 32)
+   - Paragraphe expliquant les releases stables
+   - H2: "Available Images" (ligne 40)
+   - Paragraphe décrivant les images disponibles
+
+2. **pre-releases.astro** - Ajout de 2 sections H2 descriptives:
+   - H2: "About Pre-Releases" (ligne 32)
+   - Paragraphe expliquant les pre-releases
+   - H2: "Testing & Feedback" (ligne 39)
+   - Paragraphe encourageant les tests et feedback
+
+**Impact:**
+- ✅ Résout le problème "2 pages sans H2" (2/12 pages = 16.67% → 0%)
+- ✅ Améliore la structure sémantique des pages
+- ✅ Enrichit le contenu avec des descriptions utiles
+
 ## 🎯 Plan d'Action Recommandé
 
 1. ✅ Corriger les 404 internes (liens cassés)
@@ -245,4 +270,5 @@
 8. ✅ Corriger méta-descriptions dupliquées (image-sources)
 9. ✅ Corriger méta-descriptions dupliquées (pages)
 10. ✅ Corriger titles courts
-11. ⏭️ Autres optimisations SEO (H2, contenu)
+11. ✅ Ajouter H2 aux pages releases/pre-releases
+12. ⏭️ Autres optimisations SEO (H2 dupliqués, contenu, méta-descriptions courtes)

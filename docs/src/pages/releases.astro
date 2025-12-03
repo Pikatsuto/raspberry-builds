@@ -28,6 +28,22 @@ import ReleasesComponent from '../components/Releases.vue';
       </a>
     </div>
 
+    <div class="mb-8">
+      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">About Stable Releases</h2>
+      <p class="text-gray-600 dark:text-gray-300 mb-4">
+        Stable releases are production-ready Raspberry Pi hybrid images that have been thoroughly tested
+        and are recommended for everyday use. Each release combines Raspberry Pi OS hardware support with
+        a custom Debian ARM64 rootfs, providing full hardware compatibility while maintaining a clean
+        Debian environment.
+      </p>
+
+      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4 mt-8">Available Images</h2>
+      <p class="text-gray-600 dark:text-gray-300 mb-6">
+        Download the latest stable releases below. All images are compressed with PiShrink and ready to flash
+        to your SD card or SSD. Check the individual image documentation for detailed installation and usage instructions.
+      </p>
+    </div>
+
     <ReleasesComponent client:load />
   </div>
 </Layout>
