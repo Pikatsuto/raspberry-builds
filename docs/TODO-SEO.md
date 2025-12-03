@@ -210,6 +210,29 @@
 
 **Impact:** Résout le problème de 3 méta-descriptions dupliquées dans image-sources
 
+## ✅ Commit 5: Méta-Descriptions Pages + Title Court (2025-12-04 00:30)
+
+**Fichiers modifiés:**
+- `docs/src/pages/releases.astro` (lignes 6-9)
+- `docs/src/pages/pre-releases.astro` (lignes 6-9)
+- `docs/src/content/docs/Home.md` (lignes 2-3)
+
+**Changements:**
+
+1. **releases.astro** - Ajout description unique:
+   - Description: "Download official stable Raspberry Pi hybrid images with Raspberry Pi OS hardware support and custom Debian ARM64 rootfs"
+
+2. **pre-releases.astro** - Ajout description unique:
+   - Description: "Download experimental development pre-release Raspberry Pi hybrid images with latest features and updates for testing"
+
+3. **Home.md** - Title et description améliorés:
+   - Title: "Home" → "Project Home - Raspberry Pi Hybrid Image Builder" (4 → 47 caractères)
+   - Description: "Wiki: Home" → "Automated build system for creating Raspberry Pi images with RaspiOS hardware support and custom Debian ARM64 rootfs"
+
+**Impact:**
+- ✅ Résout 2 méta-descriptions dupliquées (2/12 pages = 16.67% → 0%)
+- ✅ Corrige 1 title < 30 caractères (1/12 pages = 8.33% → 0%)
+
 ## 🎯 Plan d'Action Recommandé
 
 1. ✅ Corriger les 404 internes (liens cassés)
@@ -220,4 +243,6 @@
 6. ✅ Configurer en-têtes de sécurité (via Astro middleware)
 7. ✅ Corriger liens externes (noopener + protocole HTTPS)
 8. ✅ Corriger méta-descriptions dupliquées (image-sources)
-9. ⏭️ Autres optimisations SEO (H2, titles, contenu)
+9. ✅ Corriger méta-descriptions dupliquées (pages)
+10. ✅ Corriger titles courts
+11. ⏭️ Autres optimisations SEO (H2, contenu)
