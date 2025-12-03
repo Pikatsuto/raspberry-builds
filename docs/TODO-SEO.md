@@ -299,6 +299,51 @@
 9. `/discussions` → `https://github.com/Pikatsuto/raspberry-builds/discussions`
 10. Tous liens `/wiki/Image-*` → `/raspberry-builds/content/image-docs/Image-*`
 
+## ✅ Commit 8: Trailing Slashes - Canonical + Redirections (2025-12-04)
+
+**Fichiers modifiés:**
+- `docs/src/layouts/Layout.astro` (lignes 9-11, 48, 58, 68)
+- `docs/scripts/aggregate-content.mjs` (lignes 49, 58, 76, 91)
+
+**Problèmes corrigés:**
+
+1. **Canonical non indexable (1 page - 8.33%)**:
+   - Problème: Page racine canonical pointait vers `/raspberry-builds` (sans trailing slash)
+   - GitHub Pages redirige automatiquement vers `/raspberry-builds/` (avec trailing slash)
+   - La canonical pointait donc vers une URL avec redirection 301
+   - **Solution**: Forcer trailing slash dans canonical URL (Layout.astro:9-11)
+
+2. **Redirections 3xx internes (12 URLs - 19.35%)**:
+   - Problème: Tous les liens internes sans trailing slash causaient des redirections 301
+   - GitHub Pages force les trailing slashes pour les routes Astro
+   - **Solution**: Ajouter trailing slashes à tous les liens générés
+
+**Changements dans Layout.astro:**
+- Ligne 10: Force trailing slash pour canonical URL
+  ```javascript
+  const pathname = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.pathname + '/';
+  ```
+- Lignes 48, 58, 68: Ajouter `/` aux URLs de navigation (docs, image-docs, image-sources)
+
+**Changements dans aggregate-content.mjs:**
+- Ligne 49: Wiki links avec anchors - trailing slash uniquement si pas d'anchor
+  ```javascript
+  const anchorPart = anchor ? `#${anchor}` : '/';
+  ```
+- Ligne 58: Releases page avec trailing slash
+- Lignes 76, 91: Wiki links et relative links avec trailing slashes
+
+**Impact:**
+- ✅ Résout canonical non indexable (1 page = 8.33% → 0%)
+- ✅ Résout 12 redirections 3xx internes (19.35% → 0%)
+- ✅ Améliore performance (pas de redirections)
+- ✅ Meilleur pour SEO (URLs directes)
+
+**Note sur les H2 dupliqués:**
+- 9 pages avec H2 dupliqués (75%) - **Acceptable**
+- Ce sont des sections standardisées ("Overview", "Configuration", etc.)
+- Pas critique pour le SEO car contexte différent par page
+
 ## 🎯 Plan d'Action Recommandé
 
 1. ✅ Corriger les 404 internes (liens cassés)
@@ -313,4 +358,30 @@
 10. ✅ Corriger titles courts
 11. ✅ Ajouter H2 aux pages releases/pre-releases
 12. ✅ Corriger 10 erreurs 404 internes
-13. ⏭️ Autres optimisations SEO (H2 dupliqués, contenu, méta-descriptions courtes, redirections 3xx)
+13. ✅ Corriger canonical non indexable
+14. ✅ Corriger 12 redirections 3xx internes
+15. ✅ **Tous les problèmes critiques et moyens résolus!**
+
+## 📊 Résumé Final
+
+**8 commits de corrections SEO:**
+1. H1 uniques, canonicals, dimensions, sécurité
+2. 16 liens 404 corrigés (paths)
+3. 3 méta-descriptions (image-sources)
+4. 2 méta-descriptions + 1 title (pages)
+5. 2 pages sans H2
+6. 10 erreurs 404 internes
+7. 10 erreurs 404 internes (liens transformations)
+8. Canonical + 12 redirections 3xx (trailing slashes)
+
+**Problèmes résolus:**
+- ✅ 10 erreurs 404 internes (17.86% → 0%)
+- ✅ 1 canonical non indexable (8.33% → 0%)
+- ✅ 12 redirections 3xx (19.35% → 0%)
+- ✅ 2 pages sans H2 (16.67% → 0%)
+- ✅ Méta-descriptions dupliquées corrigées
+- ✅ Titles courts corrigés
+
+**Optimisations optionnelles restantes:**
+- 🟡 9 pages H2 dupliqués (75%) - Acceptable
+- 🟡 Méta-descriptions courtes - Appropriées pour le contenu

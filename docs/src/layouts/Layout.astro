@@ -6,7 +6,9 @@ interface Props {
 
 const { title, description = 'Documentation for Raspberry Pi hybrid image builder' } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+// Ensure canonical URL always has trailing slash for GitHub Pages compatibility
+const pathname = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.pathname + '/';
+const canonicalURL = new URL(pathname, Astro.site);
 
 // Get all docs and images for navigation
 type MarkdownPage = {
@@ -43,7 +45,7 @@ const sortedDocs = docPages
   .map((page: MarkdownPage) => {
     const filename = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
-      url: `${base}/content/docs/${filename}`,
+      url: `${base}/content/docs/${filename}/`,
       title: page.frontmatter.title || 'Untitled'
     };
   })
@@ -53,7 +55,7 @@ const sortedImageDocs = imageDocPages
   .map((page: MarkdownPage) => {
     const filename = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
-      url: `${base}/content/image-docs/${filename}`,
+      url: `${base}/content/image-docs/${filename}/`,
       title: page.frontmatter.title || 'Untitled'
     };
   })
@@ -63,7 +65,7 @@ const sortedImageSources = imageSourcePages
   .map((page: MarkdownPage) => {
     const filename = page.file.split('/').pop()?.replace('.md', '') || '';
     return {
-      url: `${base}/content/image-sources/${filename}`,
+      url: `${base}/content/image-sources/${filename}/`,
       title: page.frontmatter.title || 'Untitled'
     };
   })

@@ -45,7 +45,8 @@ function fixMarkdownLinks(content) {
       const wikiPath = path.replace('wiki/', '')
       const [pageName, anchor] = wikiPath.split('#')
       const cat = pageName.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
-      const anchorPart = anchor ? `#${anchor}` : ''
+      // Add trailing slash only if no anchor (anchors don't need trailing slash)
+      const anchorPart = anchor ? `#${anchor}` : '/'
       return `[${text}](/raspberry-builds/${cat}/${pageName}${anchorPart})`
     }
     // Handle GitHub-specific paths (actions, issues, discussions, releases)
@@ -54,7 +55,7 @@ function fixMarkdownLinks(content) {
     }
     // Handle releases - this is a valid page on GitHub Pages
     if (path === 'releases') {
-      return `[${text}](/raspberry-builds/releases)`
+      return `[${text}](/raspberry-builds/releases/)`
     }
     // For other relative paths, keep original
     return match
@@ -69,14 +70,14 @@ function fixMarkdownLinks(content) {
   // Fix LICENSE link in badge (special case where it follows another link)
   fixed = fixed.replace(/\]\(LICENSE\)/g, '](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)')
 
-  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/Page-Name) or [Page Name](/raspberry-builds/content/image-docs/Page-Name)
+  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/Page-Name/) or [Page Name](/raspberry-builds/content/image-docs/Page-Name/)
   fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
     const slug = pageName.replace(/\s+/g, '-')
     const cat = slug.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
-    return `[${pageName}](/raspberry-builds/${cat}/${slug})`
+    return `[${pageName}](/raspberry-builds/${cat}/${slug}/)`
   })
 
-  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/content/docs/Page-Name)
+  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/content/docs/Page-Name/)
   fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (_, text, link) => {
     if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
       return `[${text}](${link})`
@@ -87,7 +88,7 @@ function fixMarkdownLinks(content) {
     }
     const cleanLink = link.replace(/\.md$/, '')
     const cat = cleanLink.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
-    return `[${text}](/raspberry-builds/${cat}/${cleanLink})`
+    return `[${text}](/raspberry-builds/${cat}/${cleanLink}/)`
   })
 
   // Fix GitHub URLs that point to the wiki
