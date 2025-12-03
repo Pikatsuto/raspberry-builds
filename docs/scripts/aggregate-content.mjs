@@ -38,28 +38,34 @@ for (const dir of [CONTENT_DOCS_DIR, CONTENT_IMAGE_DOCS_DIR, CONTENT_IMAGE_SOURC
 function fixMarkdownLinks(content) {
   let fixed = content
 
-  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/docs/Page-Name) or [Page Name](/raspberry-builds/images/Page-Name)
+  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/Page-Name) or [Page Name](/raspberry-builds/content/image-docs/Page-Name)
   fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
     const slug = pageName.replace(/\s+/g, '-')
-    const cat = slug.startsWith('Image-') ? 'images' : 'docs'
+    const cat = slug.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
     return `[${pageName}](/raspberry-builds/${cat}/${slug})`
   })
 
-  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/docs/Page-Name)
+  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/content/docs/Page-Name)
   fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (_, text, link) => {
     if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
       return `[${text}](${link})`
     }
     const cleanLink = link.replace(/\.md$/, '')
-    const cat = cleanLink.startsWith('Image-') ? 'images' : 'docs'
+    const cat = cleanLink.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
     return `[${text}](/raspberry-builds/${cat}/${cleanLink})`
   })
 
   // Fix GitHub URLs that point to the wiki
   fixed = fixed.replace(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/wiki\/([^\s)]+)/g, (_, page) => {
-    const cat = page.startsWith('Image-') ? 'images' : 'docs'
+    const cat = page.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
     return `/raspberry-builds/${cat}/${page}`
   })
+
+  // Fix old /raspberry-builds/docs/ links -> /raspberry-builds/content/docs/
+  fixed = fixed.replace(/\/raspberry-builds\/docs\//g, '/raspberry-builds/content/docs/')
+
+  // Fix old /raspberry-builds/images/ links -> /raspberry-builds/content/image-docs/
+  fixed = fixed.replace(/\/raspberry-builds\/images\//g, '/raspberry-builds/content/image-docs/')
 
   return fixed
 }
