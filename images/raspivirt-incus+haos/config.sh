@@ -12,4 +12,4 @@ QEMU_RAM="8G"
 QEMU_CPUS="4"
 
 # Description
-DESCRIPTION="Raspberry Pi image with Incus, KVM virtualization and br-wan bridge"
+DESCRIPTION="Home automation platform with Incus virtualization and auto-deployed Home Assistant OS VM on Raspberry Pi"

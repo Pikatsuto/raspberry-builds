@@ -12,4 +12,4 @@ QEMU_RAM="8G"
 QEMU_CPUS="4"
 
 # Description
-DESCRIPTION="Raspberry Pi image with Incus, KVM virtualization and br-wan bridge"
+DESCRIPTION="Complete virtualization and containerization platform combining Incus containers/VMs with Docker Engine on Raspberry Pi"

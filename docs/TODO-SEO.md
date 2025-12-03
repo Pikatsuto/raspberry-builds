@@ -196,6 +196,20 @@
 - **Pages sans canonical:** 0% (✅ corrigé)
 - **Problèmes de sécurité:** 40.54% des pages
 
+## ✅ Commit 4: Méta-Descriptions Uniques (2025-12-03 23:50)
+
+**Fichiers modifiés:**
+- `images/raspivirt-incus/config.sh` (ligne 15)
+- `images/raspivirt-incus+docker/config.sh` (ligne 15)
+- `images/raspivirt-incus+haos/config.sh` (ligne 15)
+
+**Descriptions uniques créées:**
+- **raspivirt-incus**: "Base virtualization platform with Incus container/VM manager, KVM support, and bridged networking on Raspberry Pi"
+- **raspivirt-incus+docker**: "Complete virtualization and containerization platform combining Incus containers/VMs with Docker Engine on Raspberry Pi"
+- **raspivirt-incus+haos**: "Home automation platform with Incus virtualization and auto-deployed Home Assistant OS VM on Raspberry Pi"
+
+**Impact:** Résout le problème de 3 méta-descriptions dupliquées dans image-sources
+
 ## 🎯 Plan d'Action Recommandé
 
 1. ✅ Corriger les 404 internes (liens cassés)
@@ -205,4 +219,5 @@
 5. ✅ Ajouter alt text manquant
 6. ✅ Configurer en-têtes de sécurité (via Astro middleware)
 7. ✅ Corriger liens externes (noopener + protocole HTTPS)
-8. ⏭️ Optimisations SEO (méta, titles, contenu)
+8. ✅ Corriger méta-descriptions dupliquées (image-sources)
+9. ⏭️ Autres optimisations SEO (H2, titles, contenu)
