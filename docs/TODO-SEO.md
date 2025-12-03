@@ -1,11 +1,18 @@
 # TODO SEO - Documentation Site
 
-**Dernière mise à jour:** 2025-12-03
+**Dernière mise à jour:** 2025-12-03 20:58
 
-## ✅ Corrections Effectuées
+## ✅ Corrections Effectuées (3 commits)
 
-### Layout.astro
-- ✅ **URL canoniques** (ligne 80) - `<link rel="canonical">`
+### Commit 1: b3a324e - H1 Dupliqués
+**releases.astro & pre-releases.astro:**
+- ✅ **H1 uniques** - "Pre-built Images" → "Stable Releases" vs "Development Pre-Releases"
+- ✅ **Titles uniques** - Chaque page a maintenant un titre distinct
+- ✅ **Descriptions améliorées** - Plus spécifiques et descriptives
+
+### Commit 2: 052527e & ee384d1 - Sécurité et Structure
+**Layout.astro:**
+- ✅ **URL canoniques** (ligne 80) - `<link rel="canonical">` sur toutes les pages
 - ✅ **Structure H1** (ligne 208-212) - Changé en `<div>` dans le header
 - ✅ **Dimensions images**:
   - Favicon (ligne 208): `width="80" height="80"`
@@ -15,13 +22,21 @@
   - Astro footer: `rel="noopener noreferrer"`
 - ✅ **Protocole HTTPS** (ligne 92) - `//` → `https://translate.google.com`
 
-### releases.astro & pre-releases.astro
+**releases.astro & pre-releases.astro:**
 - ✅ **Sécurité liens** (ligne 18) - `rel="noopener noreferrer"` ajouté
 
-### middleware.ts (créé)
+**middleware.ts (créé):**
 - ✅ **En-têtes HTTP sécurité** - X-Frame-Options, X-Content-Type-Options, Referrer-Policy, CSP
 - ⚠️ **Note:** Ne fonctionne PAS en mode `static` (GitHub Pages)
   - Solution: Configurer au niveau CDN (Cloudflare/Vercel/Netlify) ou serveur web
+
+### Commit 3: 4a7de95 - Liens 404 Corrigés
+**scripts/aggregate-content.mjs:**
+- ✅ **Chemins corrigés** - Tous les liens internes utilisent maintenant les bons chemins:
+  - `/raspberry-builds/docs/` → `/raspberry-builds/content/docs/`
+  - `/raspberry-builds/images/` → `/raspberry-builds/content/image-docs/`
+- ✅ **16 liens 404 résolus** - Wiki links, cross-references, et liens relatifs corrigés
+- ✅ **3 transformations de liens** - [[Wiki links]], relative links, et GitHub URLs
 
 ---
 
