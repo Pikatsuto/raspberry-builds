@@ -1,25 +1,64 @@
 # TODO SEO - Documentation Site
 
-## 🔴 Problèmes Critiques (Priorité Haute)
+**Dernière mise à jour:** 2025-12-03
 
-### Liens Cassés (404)
-- [ ] **16 erreurs 404 internes** (25.81% des URLs)
-  - Identifier tous les liens cassés
-  - Corriger ou supprimer les liens vers des pages inexistantes
-  - Vérifier l'onglet "Liens entrants" pour les sources
+## ✅ Corrections Effectuées
 
-### Versions Canoniques
-- [ ] **12 pages sans URL canonique** (100% des pages)
-  - Ajouter `<link rel="canonical">` à toutes les pages
-  - Éviter la duplication de contenu dans les moteurs de recherche
+### Layout.astro
+- ✅ **URL canoniques** (ligne 80) - `<link rel="canonical">`
+- ✅ **Structure H1** (ligne 208-212) - Changé en `<div>` dans le header
+- ✅ **Dimensions images**:
+  - Favicon (ligne 208): `width="80" height="80"`
+  - HeroBackground.webp (ligne 197-198): `width="256" height="214"`
+- ✅ **Sécurité liens** (lignes 269, 383):
+  - GitHub header: `rel="noopener noreferrer"`
+  - Astro footer: `rel="noopener noreferrer"`
+- ✅ **Protocole HTTPS** (ligne 92) - `//` → `https://translate.google.com`
 
-### Structure HTML - H1
-- [ ] **12 pages avec H1 multiples** (100% des pages)
-  - Un seul H1 par page (titre principal)
-  - Utiliser H2-H6 pour les sous-titres
+### releases.astro & pre-releases.astro
+- ✅ **Sécurité liens** (ligne 18) - `rel="noopener noreferrer"` ajouté
 
-- [ ] **12 pages avec H1 dupliqués** (100% des pages)
-  - Chaque page doit avoir un H1 unique et descriptif
+### middleware.ts (créé)
+- ✅ **En-têtes HTTP sécurité** - X-Frame-Options, X-Content-Type-Options, Referrer-Policy, CSP
+- ⚠️ **Note:** Ne fonctionne PAS en mode `static` (GitHub Pages)
+  - Solution: Configurer au niveau CDN (Cloudflare/Vercel/Netlify) ou serveur web
+
+---
+
+## 🔴 Problèmes Critiques Restants (Action Manuelle Requise)
+
+### 1. Canonical URL Non Indexable (1 page - 8.33%) 🚨
+**Problème:** Une page a une URL canonique qui pointe vers une page non indexable (404, redirect, noindex, etc.)
+**Impact:** Les moteurs de recherche ignorent la canonical, imprévisibilité du classement
+**Action:**
+- Identifier la page concernée via l'outil SEO
+- Vérifier que la canonical pointe vers une URL 200 OK indexable
+- Corriger la canonical ou supprimer la page
+
+### 2. Liens Cassés 404 (16 URLs - 25.81%) 🚨
+**Problème:** Liens internes menant vers des pages inexistantes
+**Impact:** Mauvaise expérience utilisateur, perte de "link juice" SEO
+**Action:**
+- Exporter via "Exportation en bloc > Codes de réponse > Interne > Liens entrants Erreur (4xx)"
+- Pour chaque 404:
+  - Si page déplacée → redirection 301
+  - Si page supprimée → corriger/supprimer les liens
+  - Si typo → corriger l'URL
+
+### 3. H1 Dupliqués (2 pages - 16.67%)
+**Problème:** Plusieurs pages ont le même H1
+**Impact:** Difficulté pour moteurs de recherche à distinguer les pages
+**Action:**
+- Identifier les 2 pages avec H1 identiques
+- Rendre chaque H1 unique et descriptif du contenu de la page
+- Exemple: "Pre-built Images" → "Stable Releases" vs "Pre-Releases"
+
+### 4. Redirections 3xx Internes (12 URLs - 19.35%)
+**Problème:** Liens internes pointent vers des URLs qui redirigent
+**Impact:** Latence additionnelle, moins efficace pour les moteurs
+**Action:**
+- Exporter via "Exportation en bloc > Codes de réponse > Interne > Redirection (3xx)"
+- Mettre à jour les liens pour pointer directement vers l'URL finale
 
 ### Images
 - [ ] **3 images sans attributs width/height** (100% des images)
