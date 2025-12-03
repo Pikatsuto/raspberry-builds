@@ -38,6 +38,37 @@ for (const dir of [CONTENT_DOCS_DIR, CONTENT_IMAGE_DOCS_DIR, CONTENT_IMAGE_SOURC
 function fixMarkdownLinks(content) {
   let fixed = content
 
+  // Fix relative GitHub repository links (../../actions, ../../issues, etc.)
+  fixed = fixed.replace(/\[([^\]]+)\]\(\.\.\/\.\.\/(?:\.\.\/)?([^)]+)\)/g, (match, text, path) => {
+    // Handle wiki links (../../wiki/Page-Name or ../../wiki/Page-Name#anchor)
+    if (path.startsWith('wiki/')) {
+      const wikiPath = path.replace('wiki/', '')
+      const [pageName, anchor] = wikiPath.split('#')
+      const cat = pageName.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
+      const anchorPart = anchor ? `#${anchor}` : ''
+      return `[${text}](/raspberry-builds/${cat}/${pageName}${anchorPart})`
+    }
+    // Handle GitHub-specific paths (actions, issues, discussions, releases)
+    if (path === 'actions' || path === 'issues' || path === 'discussions') {
+      return `[${text}](https://github.com/Pikatsuto/raspberry-builds/${path})`
+    }
+    // Handle releases - this is a valid page on GitHub Pages
+    if (path === 'releases') {
+      return `[${text}](/raspberry-builds/releases)`
+    }
+    // For other relative paths, keep original
+    return match
+  })
+
+  // Fix relative parent directory links (../README.md, ../CLAUDE.md)
+  fixed = fixed.replace(/\[([^\]]+)\]\(\.\.\/([^)]+\.md)\)/g, (_match, text, file) => {
+    // Convert to GitHub blob URL
+    return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/${file})`
+  })
+
+  // Fix LICENSE link in badge (special case where it follows another link)
+  fixed = fixed.replace(/\]\(LICENSE\)/g, '](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)')
+
   // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/Page-Name) or [Page Name](/raspberry-builds/content/image-docs/Page-Name)
   fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
     const slug = pageName.replace(/\s+/g, '-')
@@ -49,6 +80,10 @@ function fixMarkdownLinks(content) {
   fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (_, text, link) => {
     if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
       return `[${text}](${link})`
+    }
+    // Special case: LICENSE file should link to GitHub
+    if (link === 'LICENSE') {
+      return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)`
     }
     const cleanLink = link.replace(/\.md$/, '')
     const cat = cleanLink.startsWith('Image-') ? 'content/image-docs' : 'content/docs'

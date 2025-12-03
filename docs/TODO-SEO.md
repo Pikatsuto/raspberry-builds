@@ -258,6 +258,47 @@
 - ✅ Améliore la structure sémantique des pages
 - ✅ Enrichit le contenu avec des descriptions utiles
 
+## ✅ Commit 7: Correction 404 - Liens Internes (2025-12-04)
+
+**Fichier modifié:**
+- `docs/scripts/aggregate-content.mjs` (lignes 41-104)
+
+**Transformations ajoutées au script:**
+
+1. **Liens GitHub repository** (`../../actions`, `../../issues`, `../../discussions`):
+   - Transformés en URLs GitHub absolues
+   - Exemple: `../../actions` → `https://github.com/Pikatsuto/raspberry-builds/actions`
+
+2. **Liens wiki** (`../../wiki/Page-Name`, `../../wiki/Page-Name#anchor`):
+   - Transformés en chemins content avec support des anchres
+   - Exemple: `../../wiki/Home#how-it-works` → `/raspberry-builds/content/docs/Home#how-it-works`
+   - Détection automatique image-docs vs docs selon nom de page
+
+3. **Liens fichiers sources** (`../README.md`, `../CLAUDE.md`):
+   - Transformés en URLs GitHub blob
+   - Exemple: `../README.md` → `https://github.com/Pikatsuto/raspberry-builds/blob/main/README.md`
+
+4. **Lien LICENSE** (cas spécial badge):
+   - Pattern `](LICENSE)` → `](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)`
+
+**Impact:**
+- ✅ Résout les 10 erreurs 404 internes (17.86% → 0%)
+- ✅ Tous les liens relatifs correctement transformés
+- ✅ Support des anchres dans les liens wiki
+- ✅ Distinction automatique content/docs vs content/image-docs
+
+**URLs corrigées:**
+1. `/wiki/GitHub-Actions` → `/raspberry-builds/content/docs/GitHub-Actions`
+2. `/wiki/Home` → `/raspberry-builds/content/docs/Home`
+3. `/content/docs/README/LICENSE` → `https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE`
+4. `/content/docs/CLAUDE` → `https://github.com/Pikatsuto/raspberry-builds/blob/main/CLAUDE.md`
+5. `/content/CLAUDE` → `https://github.com/Pikatsuto/raspberry-builds/blob/main/CLAUDE.md`
+6. `/issues` → `https://github.com/Pikatsuto/raspberry-builds/issues`
+7. `/actions` → `https://github.com/Pikatsuto/raspberry-builds/actions`
+8. `/content/README` → `https://github.com/Pikatsuto/raspberry-builds/blob/main/README.md`
+9. `/discussions` → `https://github.com/Pikatsuto/raspberry-builds/discussions`
+10. Tous liens `/wiki/Image-*` → `/raspberry-builds/content/image-docs/Image-*`
+
 ## 🎯 Plan d'Action Recommandé
 
 1. ✅ Corriger les 404 internes (liens cassés)
@@ -271,4 +312,5 @@
 9. ✅ Corriger méta-descriptions dupliquées (pages)
 10. ✅ Corriger titles courts
 11. ✅ Ajouter H2 aux pages releases/pre-releases
-12. ⏭️ Autres optimisations SEO (H2 dupliqués, contenu, méta-descriptions courtes)
+12. ✅ Corriger 10 erreurs 404 internes
+13. ⏭️ Autres optimisations SEO (H2 dupliqués, contenu, méta-descriptions courtes, redirections 3xx)
