@@ -40,6 +40,10 @@ function fixMarkdownLinks(content) {
 
   // Fix relative GitHub repository links (../../actions, ../../issues, etc.)
   fixed = fixed.replace(/\[([^\]]+)\]\(\.\.\/\.\.\/(?:\.\.\/)?([^)]+)\)/g, (match, text, path) => {
+    // Handle wiki directory link (../../wiki) -> Home page
+    if (path === 'wiki') {
+      return `[${text}](/raspberry-builds/content/docs/Home/)`
+    }
     // Handle wiki links (../../wiki/Page-Name or ../../wiki/Page-Name#anchor)
     if (path.startsWith('wiki/')) {
       const wikiPath = path.replace('wiki/', '')
@@ -85,6 +89,10 @@ function fixMarkdownLinks(content) {
     // Special case: LICENSE file should link to GitHub
     if (link === 'LICENSE') {
       return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)`
+    }
+    // Special case: CLAUDE.md should link to GitHub
+    if (link === 'CLAUDE.md') {
+      return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/CLAUDE.md)`
     }
     const cleanLink = link.replace(/\.md$/, '')
     const cat = cleanLink.startsWith('Image-') ? 'content/image-docs' : 'content/docs'

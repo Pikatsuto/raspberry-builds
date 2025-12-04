@@ -385,3 +385,41 @@
 **Optimisations optionnelles restantes:**
 - 🟡 9 pages H2 dupliqués (75%) - Acceptable
 - 🟡 Méta-descriptions courtes - Appropriées pour le contenu
+
+## ✅ Commit 9: Fix 2 Remaining 404 Errors (2025-12-04)
+
+**Fichier modifié:**
+- `docs/scripts/aggregate-content.mjs` (lignes 43-46, 93-96)
+
+**Problèmes corrigés:**
+
+1. **`/wiki/` links (1 error 404)**:
+   - Problème: Liens `../../wiki` (sans trailing slash) non transformés
+   - Source: README.md lignes 179, 183, 341
+   - **Solution**: Transforme `../../wiki` → `/raspberry-builds/content/docs/Home/`
+
+2. **`/content/docs/CLAUDE/` link (1 error 404)**:
+   - Problème: Lien `CLAUDE.md` transformé en chemin content au lieu de GitHub URL
+   - Source: README.md ligne 332
+   - **Solution**: Cas spécial `CLAUDE.md` → GitHub blob URL
+
+**Changements dans aggregate-content.mjs:**
+- Ligne 43-46: Détection de `../../wiki` (sans slash) et redirection vers Home
+  ```javascript
+  if (path === 'wiki') {
+    return `[${text}](/raspberry-builds/content/docs/Home/)`
+  }
+  ```
+- Ligne 93-96: Cas spécial pour CLAUDE.md pointant vers GitHub
+  ```javascript
+  if (link === 'CLAUDE.md') {
+    return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/CLAUDE.md)`
+  }
+  ```
+
+**Impact:**
+- ✅ Résout 2 erreurs 404 restantes (100% des 404 → 0%)
+- ✅ Liens wiki directory pointent maintenant vers Home
+- ✅ Lien CLAUDE.md pointe vers GitHub source
+
+**Total 404 corrigés:** 12 erreurs (10 au commit 7, 2 au commit 9)
