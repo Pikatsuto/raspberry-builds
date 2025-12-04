@@ -3,7 +3,10 @@ import Layout from '../layouts/Layout.astro';
 const base = import.meta.env.BASE_URL;
 ---
 
-<Layout title="Home">
+<Layout
+  title="Raspberry Pi Builds - Hybrid Image Builder"
+  description="Build custom Raspberry Pi hybrid images combining Raspberry Pi OS hardware support with Debian ARM64 userspace and automated CI/CD"
+>
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8">
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">
       Welcome to Raspberry Pi Builds
@@ -41,7 +44,7 @@ const base = import.meta.env.BASE_URL;
             Learn how to build, customize, and deploy hybrid Raspberry Pi images
           </p>
           <a
-            href={`${base}/content/docs/Home`}
+            href={`${base}/content/docs/home/`}
             class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline"
           >
             Read the Docs
@@ -62,7 +65,7 @@ const base = import.meta.env.BASE_URL;
             Download ready-to-use images from GitHub Releases
           </p>
           <a
-            href={`${base}/releases`}
+            href={`${base}/releases/`}
             class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline"
           >
             View Releases
@@ -119,7 +122,7 @@ const base = import.meta.env.BASE_URL;
               Browse all available releases including stable versions and pre-releases
             </p>
             <a
-              href={`${base}/releases`}
+              href={`${base}/releases/`}
               class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors"
             >
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

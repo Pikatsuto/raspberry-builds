@@ -40,18 +40,19 @@ function fixMarkdownLinks(content) {
 
   // Fix relative GitHub repository links (../../actions, ../../issues, etc.)
   fixed = fixed.replace(/\[([^\]]+)\]\(\.\.\/\.\.\/(?:\.\.\/)?([^)]+)\)/g, (match, text, path) => {
-    // Handle wiki directory link (../../wiki) -> Home page
+    // Handle wiki directory link (../../wiki) -> home page
     if (path === 'wiki') {
-      return `[${text}](/raspberry-builds/content/docs/Home/)`
+      return `[${text}](/raspberry-builds/content/docs/home/)`
     }
     // Handle wiki links (../../wiki/Page-Name or ../../wiki/Page-Name#anchor)
     if (path.startsWith('wiki/')) {
       const wikiPath = path.replace('wiki/', '')
       const [pageName, anchor] = wikiPath.split('#')
+      const pageNameLower = pageName.toLowerCase()
       const cat = pageName.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
       // Add trailing slash only if no anchor (anchors don't need trailing slash)
       const anchorPart = anchor ? `#${anchor}` : '/'
-      return `[${text}](/raspberry-builds/${cat}/${pageName}${anchorPart})`
+      return `[${text}](/raspberry-builds/${cat}/${pageNameLower}${anchorPart})`
     }
     // Handle GitHub-specific paths (actions, issues, discussions, releases)
     if (path === 'actions' || path === 'issues' || path === 'discussions') {
@@ -74,14 +75,14 @@ function fixMarkdownLinks(content) {
   // Fix LICENSE link in badge (special case where it follows another link)
   fixed = fixed.replace(/\]\(LICENSE\)/g, '](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)')
 
-  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/Page-Name/) or [Page Name](/raspberry-builds/content/image-docs/Page-Name/)
+  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/page-name/) or [Page Name](/raspberry-builds/content/image-docs/page-name/)
   fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
-    const slug = pageName.replace(/\s+/g, '-')
-    const cat = slug.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
+    const slug = pageName.replace(/\s+/g, '-').toLowerCase()
+    const cat = pageName.startsWith('Image-') || pageName.startsWith('image-') ? 'content/image-docs' : 'content/docs'
     return `[${pageName}](/raspberry-builds/${cat}/${slug}/)`
   })
 
-  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/content/docs/Page-Name/)
+  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/content/docs/page-name/)
   fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (_, text, link) => {
     if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
       return `[${text}](${link})`
@@ -94,15 +95,16 @@ function fixMarkdownLinks(content) {
     if (link === 'CLAUDE.md') {
       return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/CLAUDE.md)`
     }
-    const cleanLink = link.replace(/\.md$/, '')
-    const cat = cleanLink.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
+    const cleanLink = link.replace(/\.md$/, '').toLowerCase()
+    const cat = link.startsWith('Image-') || link.startsWith('image-') ? 'content/image-docs' : 'content/docs'
     return `[${text}](/raspberry-builds/${cat}/${cleanLink}/)`
   })
 
   // Fix GitHub URLs that point to the wiki
   fixed = fixed.replace(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/wiki\/([^\s)]+)/g, (_, page) => {
-    const cat = page.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
-    return `/raspberry-builds/${cat}/${page}`
+    const pageLower = page.toLowerCase()
+    const cat = page.startsWith('Image-') || page.startsWith('image-') ? 'content/image-docs' : 'content/docs'
+    return `/raspberry-builds/${cat}/${pageLower}`
   })
 
   // Fix old /raspberry-builds/docs/ links -> /raspberry-builds/content/docs/
@@ -162,8 +164,9 @@ async function processWiki() {
         `Wiki: ${title}`
       )
 
-      // Write to content directory
-      const outputPath = resolve(outputDir, file)
+      // Write to content directory with lowercase filename for SEO
+      const outputFile = file.toLowerCase()
+      const outputPath = resolve(outputDir, outputFile)
       await fs.writeFile(outputPath, processedContent)
       processed++
     }
@@ -197,8 +200,8 @@ async function processReadmes() {
       )
 
       const outputName = basename(dirname(path)) === '.'
-        ? basename(path)
-        : `${basename(dirname(path))}-${basename(path)}`
+        ? basename(path).toLowerCase()
+        : `${basename(dirname(path))}-${basename(path)}`.toLowerCase()
 
       const outputPath = resolve(CONTENT_DOCS_DIR, outputName)
       await fs.writeFile(outputPath, processedContent)
