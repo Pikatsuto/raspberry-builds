@@ -22,7 +22,7 @@ GitHub Wikis are separate git repositories. To publish these pages:
 
 2. **Clone the wiki repository**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/rpi-dev.wiki.git
+   git clone https://github.com/Pikatsuto/raspberry-builds.wiki.git
    cd rpi-dev.wiki
    ```
 

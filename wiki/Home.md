@@ -100,7 +100,7 @@ Want to create your own custom images? It's easy:
 1. **Fork this repository** on GitHub
 2. **Clone your fork**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/rpi-dev.git
+   git clone https://github.com/Pikatsuto/raspberry-builds.git
    cd rpi-dev
    ```
 

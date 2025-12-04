@@ -2,7 +2,7 @@
 
 Automated build system for creating Raspberry Pi images with **Raspberry Pi OS hardware support** + **custom Debian ARM64 rootfs**.
 
-[![Build Images](https://github.com/YOUR_USERNAME/rpi-dev/actions/workflows/build-images.yml/badge.svg)](https://github.com/YOUR_USERNAME/rpi-dev/actions/workflows/build-images.yml)
+[![Build Images](https://github.com/Pikatsuto/raspberry-builds/actions/workflows/build-images.yml/badge.svg)](https://github.com/Pikatsuto/raspberry-builds/actions/workflows/build-images.yml)
 [![License](https://img.shields.io/badge/license-As--Is-blue.svg)](LICENSE)
 
 ---
