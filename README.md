@@ -170,6 +170,7 @@ qemu-system-aarch64 \
 ```bash
 # Via SSH (once the VM has started)
 ssh -p 2222 pi@localhost
+```
 
 | Image | Description | Size | Download |
 |-------|-------------|------|----------|
