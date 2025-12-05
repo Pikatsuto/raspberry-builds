@@ -7,128 +7,104 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '../..')
 const DOCS_ROOT = resolve(__dirname, '..')
-const CONTENT_DOCS_DIR = resolve(DOCS_ROOT, 'src/content/docs')
-const CONTENT_IMAGE_DOCS_DIR = resolve(DOCS_ROOT, 'src/content/image-docs')
-const CONTENT_IMAGE_SOURCES_DIR = resolve(DOCS_ROOT, 'src/content/image-sources')
+const CONTENT_DIR = resolve(DOCS_ROOT, 'src/content/docs')
 const WIKI_DIR = resolve(REPO_ROOT, 'wiki')
 
-console.log('🚀 Starting content aggregation for Astro...\n')
+console.log('🚀 Starting content aggregation for Starlight...\n')
 
 // Ensure content directories exist
-await fs.mkdir(CONTENT_DOCS_DIR, { recursive: true })
-await fs.mkdir(CONTENT_IMAGE_DOCS_DIR, { recursive: true })
-await fs.mkdir(CONTENT_IMAGE_SOURCES_DIR, { recursive: true })
+await fs.mkdir(resolve(CONTENT_DIR, 'docs'), { recursive: true })
+await fs.mkdir(resolve(CONTENT_DIR, 'images'), { recursive: true })
+await fs.mkdir(resolve(CONTENT_DIR, 'image-sources'), { recursive: true })
 
-// Clean existing content
+// Clean existing content (except index.mdx)
 console.log('🧹 Cleaning existing content...')
-for (const dir of [CONTENT_DOCS_DIR, CONTENT_IMAGE_DOCS_DIR, CONTENT_IMAGE_SOURCES_DIR]) {
+for (const dir of ['docs', 'images', 'image-sources']) {
+  const fullPath = resolve(CONTENT_DIR, dir)
   try {
-    const files = await fs.readdir(dir)
+    const files = await fs.readdir(fullPath)
     for (const file of files) {
-      await fs.rm(resolve(dir, file), { recursive: true, force: true })
+      await fs.rm(resolve(fullPath, file), { recursive: true, force: true })
     }
   } catch (err) {
-    // Directory might be empty
+    // Directory might be empty or not exist
   }
 }
 
 /**
- * Fix markdown links for Astro compatibility
+ * Fix markdown links for Starlight compatibility
  */
 function fixMarkdownLinks(content) {
   let fixed = content
 
-  // Fix relative GitHub repository links (../../actions, ../../issues, etc.)
+  // Fix relative GitHub repository links
   fixed = fixed.replace(/\[([^\]]+)\]\(\.\.\/\.\.\/(?:\.\.\/)?([^)]+)\)/g, (match, text, path) => {
-    // Handle wiki directory link (../../wiki) -> home page
+    // Handle wiki directory link
     if (path === 'wiki') {
-      return `[${text}](/raspberry-builds/content/docs/home/)`
+      return `[${text}](/raspberry-builds/docs/home/)`
     }
-    // Handle wiki links (../../wiki/Page-Name or ../../wiki/Page-Name#anchor)
+    // Handle wiki links
     if (path.startsWith('wiki/')) {
       const wikiPath = path.replace('wiki/', '')
       const [pageName, anchor] = wikiPath.split('#')
       const pageNameLower = pageName.toLowerCase()
-      const cat = pageName.startsWith('Image-') ? 'content/image-docs' : 'content/docs'
-      // Add trailing slash only if no anchor (anchors don't need trailing slash)
+      const cat = pageName.startsWith('Image-') ? 'images' : 'docs'
       const anchorPart = anchor ? `#${anchor}` : '/'
       return `[${text}](/raspberry-builds/${cat}/${pageNameLower}${anchorPart})`
     }
-    // Handle GitHub-specific paths (actions, issues, discussions, releases)
+    // Handle GitHub-specific paths
     if (path === 'actions' || path === 'issues' || path === 'discussions') {
       return `[${text}](https://github.com/Pikatsuto/raspberry-builds/${path})`
     }
-    // Handle releases - this is a valid page on GitHub Pages
+    // Handle releases
     if (path === 'releases') {
       return `[${text}](/raspberry-builds/releases/)`
     }
-    // For other relative paths, keep original
     return match
   })
 
-  // Fix relative parent directory links (../README.md, ../CLAUDE.md)
+  // Fix relative parent directory links
   fixed = fixed.replace(/\[([^\]]+)\]\(\.\.\/([^)]+\.md)\)/g, (_match, text, file) => {
-    // Convert to GitHub blob URL
     return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/${file})`
   })
 
-  // Fix LICENSE link in badge (special case where it follows another link)
+  // Fix LICENSE link
   fixed = fixed.replace(/\]\(LICENSE\)/g, '](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)')
 
-  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/content/docs/page-name/) or [Page Name](/raspberry-builds/content/image-docs/page-name/)
+  // Convert GitHub wiki links: [[Page Name]] -> [Page Name](/raspberry-builds/docs/page-name/)
   fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
     const slug = pageName.replace(/\s+/g, '-').toLowerCase()
-    const cat = pageName.startsWith('Image-') || pageName.startsWith('image-') ? 'content/image-docs' : 'content/docs'
+    const cat = pageName.startsWith('Image-') ? 'images' : 'docs'
     return `[${pageName}](/raspberry-builds/${cat}/${slug}/)`
   })
 
-  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/content/docs/page-name/)
+  // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/docs/page-name/)
   fixed = fixed.replace(/\[([^\]]+)\]\((?!http|\/|#)([^)]+)\)/g, (_, text, link) => {
     if (link.includes('://') || link.startsWith('/') || link.startsWith('#')) {
       return `[${text}](${link})`
     }
-    // Special case: LICENSE file should link to GitHub
-    if (link === 'LICENSE') {
-      return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/LICENSE)`
-    }
-    // Special case: CLAUDE.md should link to GitHub
-    if (link === 'CLAUDE.md') {
-      return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/CLAUDE.md)`
+    if (link === 'LICENSE' || link === 'CLAUDE.md') {
+      return `[${text}](https://github.com/Pikatsuto/raspberry-builds/blob/main/${link})`
     }
     const cleanLink = link.replace(/\.md$/, '').toLowerCase()
-    const cat = link.startsWith('Image-') || link.startsWith('image-') ? 'content/image-docs' : 'content/docs'
+    const cat = link.startsWith('Image-') ? 'images' : 'docs'
     return `[${text}](/raspberry-builds/${cat}/${cleanLink}/)`
   })
-
-  // Fix GitHub URLs that point to the wiki
-  fixed = fixed.replace(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/wiki\/([^\s)]+)/g, (_, page) => {
-    const pageLower = page.toLowerCase()
-    const cat = page.startsWith('Image-') || page.startsWith('image-') ? 'content/image-docs' : 'content/docs'
-    return `/raspberry-builds/${cat}/${pageLower}`
-  })
-
-  // Fix old /raspberry-builds/docs/ links -> /raspberry-builds/content/docs/
-  fixed = fixed.replace(/\/raspberry-builds\/docs\//g, '/raspberry-builds/content/docs/')
-
-  // Fix old /raspberry-builds/images/ links -> /raspberry-builds/content/image-docs/
-  fixed = fixed.replace(/\/raspberry-builds\/images\//g, '/raspberry-builds/content/image-docs/')
 
   return fixed
 }
 
 /**
- * Process markdown content to add frontmatter
+ * Process markdown content to add frontmatter for Starlight
  */
 function addFrontmatter(content, title, description = '') {
-  // Remove existing frontmatter if present
   const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n/, '')
-
-  // Fix markdown links
   const fixedContent = fixMarkdownLinks(withoutFrontmatter)
 
+  // Properly quote YAML values to handle special characters
   const frontmatter = `---
-title: "${title}"
-description: "${description}"
+title: "${title.replace(/"/g, '\\"')}"
+description: "${description.replace(/"/g, '\\"')}"
 ---
 
 `
@@ -153,9 +129,11 @@ async function processWiki() {
       // Convert filename to title
       const title = name.replace(/-/g, ' ')
 
-      // Determine category: Wiki pages starting with "Image-" go to image-docs
+      // Determine category
       const isImageDoc = name.startsWith('Image-')
-      const outputDir = isImageDoc ? CONTENT_IMAGE_DOCS_DIR : CONTENT_DOCS_DIR
+      const outputDir = isImageDoc
+        ? resolve(CONTENT_DIR, 'images')
+        : resolve(CONTENT_DIR, 'docs')
 
       // Process content
       const processedContent = addFrontmatter(
@@ -164,7 +142,7 @@ async function processWiki() {
         `Wiki: ${title}`
       )
 
-      // Write to content directory with lowercase filename for SEO
+      // Write to content directory with lowercase filename
       const outputFile = file.toLowerCase()
       const outputPath = resolve(outputDir, outputFile)
       await fs.writeFile(outputPath, processedContent)
@@ -178,18 +156,18 @@ async function processWiki() {
 }
 
 /**
- * Process main README files (excluding CLAUDE.md)
+ * Process main README files
  */
 async function processReadmes() {
   console.log('📄 Processing README files...')
 
   const readmeFiles = [
-    { path: 'README.md', title: 'Project Overview' },
-    { path: '.github/README.md', title: 'GitHub Actions Documentation' },
+    { path: 'README.md', title: 'Project Overview', slug: 'readme.md' },
+    { path: '.github/README.md', title: 'GitHub Actions Documentation', slug: 'github-actions-ci.md' },
   ]
 
   let processed = 0
-  for (const { path, title } of readmeFiles) {
+  for (const { path, title, slug } of readmeFiles) {
     const fullPath = resolve(REPO_ROOT, path)
     try {
       const content = await fs.readFile(fullPath, 'utf-8')
@@ -199,11 +177,7 @@ async function processReadmes() {
         `Documentation from ${path}`
       )
 
-      const outputName = basename(dirname(path)) === '.'
-        ? basename(path).toLowerCase()
-        : `${basename(dirname(path))}-${basename(path)}`.toLowerCase()
-
-      const outputPath = resolve(CONTENT_DOCS_DIR, outputName)
+      const outputPath = resolve(CONTENT_DIR, slug)
       await fs.writeFile(outputPath, processedContent)
       processed++
     } catch (err) {
@@ -296,7 +270,7 @@ async function processImageConfigs() {
           description
         )
 
-        const outputPath = resolve(CONTENT_IMAGE_SOURCES_DIR, `${imageName}.md`)
+        const outputPath = resolve(CONTENT_DIR, 'image-sources', `${imageName}.md`)
         await fs.writeFile(outputPath, processedContent)
         processed++
       } catch (err) {
