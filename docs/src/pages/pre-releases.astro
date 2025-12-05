@@ -1,7 +1,8 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import ReleasesComponent from '../components/ReleasesComponent.vue';
 
-// Fetch releases at build time for SEO
+// Fetch pre-releases at build time for SEO
 let releases: any[] = [];
 try {
   const response = await fetch('https://api.github.com/repos/Pikatsuto/raspberry-builds/releases');
@@ -12,107 +13,120 @@ try {
   console.error('Failed to fetch releases at build time:', error);
 }
 
-// Filter pre-releases only
+// Filter pre-releases
 const preReleases = releases.filter((r: any) => r.prerelease).slice(0, 5);
 ---
 
-<Layout
-  title="Pre-Releases"
-  description="Download experimental development pre-release Raspberry Pi hybrid images with latest features and updates for testing"
+<StarlightPage
+  frontmatter={{
+    title: 'Pre-releases',
+    description: 'Download development builds and pre-releases of Raspberry Pi hybrid images for testing',
+  }}
 >
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Development Pre-Releases</h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-2">
-          Download experimental pre-release Raspberry Pi hybrid images
-        </p>
-      </div>
-      <a
-        href="https://github.com/Pikatsuto/raspberry-builds/releases"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-      >
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-        View on GitHub
-      </a>
+  <div class="releases-intro">
+    <p>
+      Pre-releases are development builds from non-main branches that may include experimental
+      features or be in testing. These builds are suitable for testing and development purposes
+      but should not be used in production environments.
+    </p>
+
+    <div class="warning-box">
+      <strong>⚠️ Warning:</strong> Pre-releases may contain bugs or incomplete features.
+      Use at your own risk and consider using stable releases for production use.
     </div>
 
-    <div class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">About Pre-Releases</h2>
-      <p class="text-gray-600 dark:text-gray-300 mb-4">
-        Pre-releases are experimental development versions that include the latest features and updates.
-        These images are built from development branches and are intended for testing purposes. While they
-        may contain exciting new features, they should not be used in production environments.
-      </p>
-
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4 mt-8">Testing & Feedback</h2>
-      <p class="text-gray-600 dark:text-gray-300 mb-6">
-        We encourage users to test pre-releases and provide feedback through GitHub Issues. Your testing
-        helps us identify bugs and improve the quality of stable releases. Download pre-release images below
-        and report any issues you encounter.
-      </p>
-    </div>
-
-    <!-- Static content for SEO (always rendered, crawlable by Google) -->
-    <div class="space-y-4 mb-8">
-      {preReleases.length > 0 ? (
-        preReleases.map((release: any) => (
-          <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-6">
-            <div class="flex items-start justify-between mb-4">
-              <div>
-                <div class="flex items-center space-x-3 mb-2">
-                  <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{release.tag_name}</h3>
-                  <span class="px-2 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded">Pre-Release</span>
-                </div>
-                <p class="text-gray-600 dark:text-gray-400">{release.name}</p>
-                {release.published_at && (
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Released: {new Date(release.published_at).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-              <a
-                href={release.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors"
-              >
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                View Release
-              </a>
-            </div>
-
-            {release.assets && release.assets.length > 0 && (
-              <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
-                <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Download Assets:</h4>
-                <div class="space-y-2">
-                  {release.assets.map((asset: any) => (
-                    <a
-                      href={asset.browser_download_url}
-                      class="flex items-center text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                    >
-                      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      {asset.name} ({(asset.size / 1024 / 1024).toFixed(2)} MB)
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ))
-      ) : (
-        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-          <p class="text-blue-800 dark:text-blue-300">No pre-releases available at this time. Check back later for development versions.</p>
-        </div>
-      )}
-    </div>
+    <h2>Available Pre-releases</h2>
+    <p>
+      All images are compressed with PiShrink. Make sure to check the release notes
+      for known issues and testing instructions.
+    </p>
   </div>
-</Layout>
+
+  <!-- Static content for SEO -->
+  {preReleases.length > 0 && (
+    <div class="seo-releases">
+      {preReleases.map((release: any) => (
+        <div>
+          <h3>{release.tag_name} - {release.name}</h3>
+          <p>Released: {new Date(release.published_at).toLocaleDateString()}</p>
+          {release.assets && release.assets.length > 0 && (
+            <ul>
+              {release.assets.map((asset: any) => (
+                <li>
+                  <a href={asset.browser_download_url}>{asset.name}</a>
+                  ({(asset.size / 1024 / 1024).toFixed(2)} MB)
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+
+  <!-- Interactive component (client-side) -->
+  <ReleasesComponent client:load prerelease={true} limit={10} />
+
+  <div class="flash-instructions">
+    <h2>Flash an Image</h2>
+    <pre><code># Decompress and flash
+xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+sync</code></pre>
+    <p><strong>⚠️ Replace <code>/dev/sdX</code> with your device!</strong></p>
+  </div>
+
+  <div class="github-link">
+    <a href="https://github.com/Pikatsuto/raspberry-builds/releases" target="_blank" rel="noopener noreferrer">
+      View all releases on GitHub →
+    </a>
+  </div>
+</StarlightPage>
+
+<style>
+  .releases-intro {
+    margin-bottom: 2rem;
+  }
+
+  .warning-box {
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    background: var(--sl-color-orange-high);
+    color: var(--sl-color-orange-low);
+    border-radius: 0.5rem;
+    border-left: 4px solid var(--sl-color-orange);
+  }
+
+  .seo-releases {
+    display: none; /* Hidden from view but crawlable by search engines */
+  }
+
+  .flash-instructions {
+    margin-top: 3rem;
+    padding: 1.5rem;
+    background: var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+  }
+
+  .flash-instructions h2 {
+    margin-top: 0;
+  }
+
+  .flash-instructions pre {
+    margin: 1rem 0;
+  }
+
+  .github-link {
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  .github-link a {
+    color: var(--sl-color-accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .github-link a:hover {
+    text-decoration: underline;
+  }
+</style>

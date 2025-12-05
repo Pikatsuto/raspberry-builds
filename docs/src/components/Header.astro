@@ -1,0 +1,27 @@
+---
+import type { Props } from '@astrojs/starlight/props';
+import Default from '@astrojs/starlight/components/Header.astro';
+import GoogleTranslate from './GoogleTranslate.astro';
+---
+
+<Default {...Astro.props} />
+<div class="google-translate-wrapper">
+  <GoogleTranslate />
+</div>
+
+<style>
+  .google-translate-wrapper {
+    position: fixed;
+    top: 15px;
+    right: 175px;
+    z-index: 9999;
+  }
+
+  @media (max-width: 768px) {
+    .google-translate-wrapper {
+      top: auto;
+      bottom: 1rem;
+      right: 1rem;
+    }
+  }
+</style>

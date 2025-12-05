@@ -1,0 +1,56 @@
+---
+title: Raspberry Pi Builds
+description: Create hybrid Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs
+template: splash
+hero:
+  tagline: Raspberry Pi hardware support meets Debian ARM64 flexibility
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Get Started
+      link: /raspberry-builds/docs/home/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/Pikatsuto/raspberry-builds
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is this?
+
+This project creates hybrid Raspberry Pi images that combine:
+- **Raspberry Pi OS boot partition** - Full hardware support for Raspberry Pi (including RP1 chip drivers)
+- **Debian ARM64 root filesystem** - Clean Debian userspace with automatic updates
+
+<CardGrid>
+  <Card title="Full Hardware Support" icon="rocket">
+    Includes Raspberry Pi kernel with RP1 drivers for Ethernet, USB, GPIO, and all hardware features
+  </Card>
+  <Card title="Debian Flexibility" icon="setting">
+    Pure Debian ARM64 rootfs with access to all Debian packages and automatic updates
+  </Card>
+  <Card title="Automated Builds" icon="github">
+    GitHub Actions CI/CD pipeline builds and releases images automatically
+  </Card>
+  <Card title="Easy to Flash" icon="document">
+    Download compressed images ready to flash to SD card or SSD
+  </Card>
+</CardGrid>
+
+## Quick Start
+
+1. Download an image from [Releases](/raspberry-builds/releases/)
+2. Flash to SD card: `xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress`
+3. Boot your Raspberry Pi!
+
+## Available Images
+
+Browse the [Images](/raspberry-builds/images/) section to see all available configurations.
+
+## Learn More
+
+- [Project Overview](/raspberry-builds/readme/) - Detailed architecture and technical information
+- [GitHub Actions](/raspberry-builds/docs/github-actions/) - CI/CD pipeline documentation
+- [Image Sources](/raspberry-builds/image-sources/) - Configuration details for each image

@@ -1,6 +1,6 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import ReleasesComponent from '../components/Releases.vue';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import ReleasesComponent from '../components/ReleasesComponent.vue';
 
 // Fetch releases at build time for SEO
 let releases: any[] = [];
@@ -13,101 +13,107 @@ try {
   console.error('Failed to fetch releases at build time:', error);
 }
 
-// Filter stable releases (not pre-releases)
+// Filter stable releases
 const stableReleases = releases.filter((r: any) => !r.prerelease).slice(0, 5);
 ---
 
-<Layout
-  title="Stable Releases"
-  description="Download official stable Raspberry Pi hybrid images with Raspberry Pi OS hardware support and custom Debian ARM64 rootfs"
+<StarlightPage
+  frontmatter={{
+    title: 'Stable Releases',
+    description: 'Download official stable Raspberry Pi hybrid images with Raspberry Pi OS hardware support and custom Debian ARM64 rootfs',
+  }}
 >
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Stable Releases</h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-2">
-          Download official stable Raspberry Pi hybrid images
-        </p>
-      </div>
-      <a
-        href="https://github.com/Pikatsuto/raspberry-builds/releases"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-      >
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-        View on GitHub
-      </a>
-    </div>
+  <div class="releases-intro">
+    <p>
+      Download official stable Raspberry Pi hybrid images that have been thoroughly tested
+      and are recommended for everyday use. Each release combines Raspberry Pi OS hardware
+      support with a custom Debian ARM64 rootfs, providing full hardware compatibility while
+      maintaining a clean Debian environment.
+    </p>
 
-    <div class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">About Stable Releases</h2>
-      <p class="text-gray-600 dark:text-gray-300 mb-4">
-        Stable releases are production-ready Raspberry Pi hybrid images that have been thoroughly tested
-        and are recommended for everyday use. Each release combines Raspberry Pi OS hardware support with
-        a custom Debian ARM64 rootfs, providing full hardware compatibility while maintaining a clean
-        Debian environment.
-      </p>
+    <h2>Available Images</h2>
+    <p>
+      All images are compressed with PiShrink and ready to flash to your SD card or SSD.
+      Check the individual image documentation for detailed installation and usage instructions.
+    </p>
+  </div>
 
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4 mt-8">Available Images</h2>
-      <p class="text-gray-600 dark:text-gray-300 mb-6">
-        Download the latest stable releases below. All images are compressed with PiShrink and ready to flash
-        to your SD card or SSD. Check the individual image documentation for detailed installation and usage instructions.
-      </p>
-    </div>
-
-    <!-- Static content for SEO (always rendered, crawlable by Google) -->
-    <div class="space-y-4 mb-8">
+  <!-- Static content for SEO -->
+  {stableReleases.length > 0 && (
+    <div class="seo-releases">
       {stableReleases.map((release: any) => (
-        <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-6">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <div class="flex items-center space-x-3 mb-2">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{release.tag_name}</h3>
-                <span class="px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded">Stable</span>
-              </div>
-              <p class="text-gray-600 dark:text-gray-400">{release.name}</p>
-              {release.published_at && (
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  Released: {new Date(release.published_at).toLocaleDateString()}
-                </p>
-              )}
-            </div>
-            <a
-              href={release.html_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              View Release
-            </a>
-          </div>
-
+        <div>
+          <h3>{release.tag_name} - {release.name}</h3>
+          <p>Released: {new Date(release.published_at).toLocaleDateString()}</p>
           {release.assets && release.assets.length > 0 && (
-            <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
-              <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Download Assets:</h4>
-              <div class="space-y-2">
-                {release.assets.map((asset: any) => (
-                  <a
-                    href={asset.browser_download_url}
-                    class="flex items-center text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {asset.name} ({(asset.size / 1024 / 1024).toFixed(2)} MB)
-                  </a>
-                ))}
-              </div>
-            </div>
+            <ul>
+              {release.assets.map((asset: any) => (
+                <li>
+                  <a href={asset.browser_download_url}>{asset.name}</a>
+                  ({(asset.size / 1024 / 1024).toFixed(2)} MB)
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       ))}
     </div>
+  )}
+
+  <!-- Interactive component (client-side) -->
+  <ReleasesComponent client:load prerelease={false} limit={10} />
+
+  <div class="flash-instructions">
+    <h2>Flash an Image</h2>
+    <pre><code># Decompress and flash
+xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+sync</code></pre>
+    <p><strong>⚠️ Replace <code>/dev/sdX</code> with your device!</strong></p>
   </div>
-</Layout>
+
+  <div class="github-link">
+    <a href="https://github.com/Pikatsuto/raspberry-builds/releases" target="_blank" rel="noopener noreferrer">
+      View all releases on GitHub →
+    </a>
+  </div>
+</StarlightPage>
+
+<style>
+  .releases-intro {
+    margin-bottom: 2rem;
+  }
+
+  .seo-releases {
+    display: none; /* Hidden from view but crawlable by search engines */
+  }
+
+  .flash-instructions {
+    margin-top: 3rem;
+    padding: 1.5rem;
+    background: var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+  }
+
+  .flash-instructions h2 {
+    margin-top: 0;
+  }
+
+  .flash-instructions pre {
+    margin: 1rem 0;
+  }
+
+  .github-link {
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  .github-link a {
+    color: var(--sl-color-accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .github-link a:hover {
+    text-decoration: underline;
+  }
+</style>
