@@ -1,8 +1,8 @@
 #!/bin/bash
-# Configuration for "raspivirt-incus+docker" image
+# Configuration for "raspivirt-qemu+docker" image
 
 # Output image name
-OUTPUT_IMAGE="rpi-raspivirt-incus+docker.img"
+OUTPUT_IMAGE="rpi-raspivirt-qemu+docker.img"
 
 # Final image size
 IMAGE_SIZE="4G"

@@ -1,8 +1,8 @@
 #!/bin/bash
-# Configuration for "raspivirt-incus" image
+# Configuration for "raspivirt-qemu" image
 
 # Output image name
-OUTPUT_IMAGE="rpi-raspivirt-incus+haos.img"
+OUTPUT_IMAGE="rpi-raspivirt-qemu+haos.img"
 
 # Final image size
 IMAGE_SIZE="4G"
