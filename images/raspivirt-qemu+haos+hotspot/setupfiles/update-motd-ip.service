@@ -1,0 +1,12 @@
+[Unit]
+Description=Update MOTD with IP addresses
+After=network-online.target systemd-networkd.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/update-motd-ip.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
