@@ -5,7 +5,7 @@
 OUTPUT_IMAGE="rpi-raspivirt-qemu.img"
 
 # Final image size
-IMAGE_SIZE="4G"
+IMAGE_SIZE="2G"
 
 # RAM and CPU for QEMU
 QEMU_RAM="8G"
