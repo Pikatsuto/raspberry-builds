@@ -16,8 +16,8 @@ if [ -f /boot/firmware/cmdline.txt ]; then
     fi
 fi
 
-# 2. Disable cloud-init networking (netplan will take over)
-echo "[2/4] Disabling cloud-init networking..."
+# 2. Disable cloud-init networking (NetworkManager will take over)
+echo "[2/2] Disabling cloud-init networking..."
 mkdir -p /etc/cloud/cloud.cfg.d/
 cat > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg << 'CLOUDEOF'
 network: {config: disabled}
@@ -25,7 +25,7 @@ CLOUDEOF
 echo "  Cloud-init networking disabled"
 
 # 3. Resize root partition to use all available space
-echo "[3/4] Resizing root partition..."
+echo "[3/3] Resizing root partition..."
 
 # Detect root device and partition
 ROOT_PART=$(findmnt -n -o SOURCE /)
@@ -51,17 +51,12 @@ resize2fs "$ROOT_PART"
 
 echo "  Partition resized successfully!"
 
-# 4. Move netplan configuration for services-first-boot to use
-echo "[4/4] Preparing netplan configuration..."
-mv /root/99-br-wan.yaml /etc/netplan/99-br-wan.yaml
-netplan generate || true
-echo "  Netplan configuration ready"
-
 # Disable this service for next boots
 echo "Disabling first-boot service..."
 systemctl disable rpi-first-boot.service
 rm -f /etc/systemd/system/rpi-first-boot.service
 rm -f /usr/local/bin/rpi-first-boot.sh
+systemctl enable services-first-boot.service
 
 echo "======================================"
 echo "First boot configuration complete!"

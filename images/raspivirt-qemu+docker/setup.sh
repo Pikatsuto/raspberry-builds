@@ -26,7 +26,7 @@ apt install -y \
     ca-certificates \
     gnupg \
     lsb-release \
-    netplan.io \
+    network-manager \
     systemd \
     bridge-utils \
     net-tools \
@@ -101,15 +101,15 @@ Signed-By: /etc/apt/keyrings/zabbly.asc
 
 EOF'
 
-# Install first-boot service for partition resize and eth0 naming
+# Install first-boot service for partition resize and network configuration
 echo "Installing first-boot service..."
 if [ -f /root/setupfiles/rpi-first-boot.sh ] && [ -f /root/setupfiles/rpi-first-boot.service ]; then
     mv /root/setupfiles/rpi-first-boot.sh /usr/local/bin/rpi-first-boot.sh
     chmod +x /usr/local/bin/rpi-first-boot.sh
     mv /root/setupfiles/rpi-first-boot.service /etc/systemd/system/rpi-first-boot.service
+
     systemctl daemon-reload
     systemctl enable rpi-first-boot.service
-    mv /root/setupfiles/99-br-wan.yaml /root/99-br-wan.yaml
     echo "  First-boot files installed"
 else
     echo "  Warning: rpi-first-boot files not found in setupfiles"
@@ -211,10 +211,8 @@ EOF
 
 # Enable required services at boot
 echo "[9/9] Enabling services at boot..."
-systemctl enable systemd-networkd
-systemctl enable systemd-resolved
+systemctl enable NetworkManager
 systemctl enable rpi-first-boot.service || true
-systemctl enable services-first-boot.service || true
 systemctl enable update-motd-ip.service || true
 systemctl enable update-motd-ip.path || true
 systemctl enable incus
@@ -227,7 +225,6 @@ systemctl enable ssh
 
 # Cleanup
 echo "Cleaning up..."
-apt purge -y network-manager 2>/dev/null || true
 apt autoremove -y --purge
 apt clean
 rm -rf /var/lib/apt/lists/*
