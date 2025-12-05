@@ -2,7 +2,7 @@
 # Configuration for "raspivirt-qemu" image
 
 # Output image name
-OUTPUT_IMAGE="rpi-raspivirt-qemu.img"
+OUTPUT_IMAGE="rpi-debian-hotspot.img"
 
 # Final image size
 IMAGE_SIZE="2G"
