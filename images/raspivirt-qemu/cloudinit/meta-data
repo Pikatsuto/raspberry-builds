@@ -1,2 +1,2 @@
 instance-id: debian-qemu-001
-local-hostname: RaspiVirt-Incus
+local-hostname: RaspiVirt-Qemu
