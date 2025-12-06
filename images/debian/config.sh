@@ -5,7 +5,7 @@
 OUTPUT_IMAGE="rpi-debian.img"
 
 # Final image size
-IMAGE_SIZE="2G"
+IMAGE_SIZE="4G"
 
 # RAM and CPU for QEMU
 QEMU_RAM="8G"
