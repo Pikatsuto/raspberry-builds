@@ -8,10 +8,22 @@
 - [GitHub Actions](GitHub-Actions)
 - [Build Process](GitHub-Actions#build-architecture)
 
-**Images**
+**Base Images**
 - [RaspiVirt-Incus](Image-RaspiVirt-Incus)
 - [RaspiVirt-Incus+Docker](Image-RaspiVirt-Incus-Docker)
 - [RaspiVirt-Incus+HAOS](Image-RaspiVirt-Incus-HAOS)
+
+**Hotspot Variants**
+- [WiFi Hotspot Images](Image-WiFi-Hotspot)
+  - Incus+Hotspot
+  - Incus+Docker+Hotspot
+  - Incus+HAOS+Hotspot
+  - Incus+HAOS+Docker+Hotspot
+
+**HAOS Docker Variants**
+- [HAOS+Docker Images](Image-HAOS-Docker)
+  - Incus+HAOS+Docker
+  - Incus+HAOS+Docker+Hotspot
 
 **Resources**
 - [Main README](https://github.com/Pikatsuto/raspberry-builds/blob/main/README.md)

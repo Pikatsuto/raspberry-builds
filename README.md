@@ -73,46 +73,120 @@ images/image-name/
 
 ### Pre-built Images
 
-This repository includes several ready-to-use images:
+This repository includes multiple ready-to-use image variants optimized for different use cases.
 
-#### RaspiVirt-Incus
-**Image**: `raspivirt-incus`
+#### Base Images
 
-A complete virtualization platform with Incus container/VM manager:
+##### RaspiVirt-Incus
+**Image**: `raspivirt-qemu`
+
+Base virtualization platform with Incus container/VM manager:
 - Incus web UI (port 8443)
 - KVM hardware virtualization
-- Bridged networking (br-wan)
+- Bridged networking (br-wan + optional br-lan)
 - System containers and VMs support
 
 ```bash
-./bin/autobuild --image raspivirt-incus
+./bin/autobuild --image raspivirt-qemu
 ```
 
-#### RaspiVirt-Incus+Docker
-**Image**: `raspivirt-incus+docker`
+**[Full Documentation](wiki/Image-RaspiVirt-Incus.md)**
+
+##### RaspiVirt-Incus+Docker
+**Image**: `raspivirt-qemu+docker`
 
 Extends RaspiVirt-Incus with Docker integration:
 - Everything from RaspiVirt-Incus
-- Docker Engine with Incus bridge networking
-- Run both containers and VMs on the same host
+- Docker Engine with Portainer web UI (port 9443)
+- Watchtower for automatic container updates
+- Run both Incus and Docker workloads
 
 ```bash
-./bin/autobuild --image raspivirt-incus+docker
+./bin/autobuild --image raspivirt-qemu+docker
 ```
 
-#### RaspiVirt-Incus+HAOS
-**Image**: `raspivirt-incus+haos`
+**[Full Documentation](wiki/Image-RaspiVirt-Incus-Docker.md)**
+
+##### RaspiVirt-Incus+HAOS
+**Image**: `raspivirt-qemu+haos`
 
 Home automation platform with automatic Home Assistant OS deployment:
 - Everything from RaspiVirt-Incus
-- Home Assistant OS 16.3 VM (auto-deployed on first boot)
+- Home Assistant OS VM (auto-deployed on first boot)
 - Adaptive dual-bridge networking (br-lan/br-wan)
-- Automatic Zigbee dongle detection and USB passthrough
-- Built-in DHCP server for internal LAN (if eth1 detected)
+- Automatic Zigbee/Z-Wave dongle detection and USB passthrough
+- Built-in DHCP/DNS server for LAN (if eth1 detected)
 
 ```bash
-./bin/autobuild --image raspivirt-incus+haos
+./bin/autobuild --image raspivirt-qemu+haos
 ```
+
+**[Full Documentation](wiki/Image-RaspiVirt-Incus-HAOS.md)**
+
+#### WiFi Hotspot Variants
+
+All base images are available with WiFi Access Point functionality:
+
+##### RaspiVirt-Incus+Hotspot
+**Image**: `raspivirt-qemu+hotspot`
+
+Base platform + WiFi hotspot (5GHz or dual-band):
+- All RaspiVirt-Incus features
+- Automatic WiFi interface detection
+- hostapd with WPA2 security
+- DHCP/DNS server for WiFi clients
+
+```bash
+./bin/autobuild --image raspivirt-qemu+hotspot
+```
+
+##### RaspiVirt-Incus+Docker+Hotspot
+**Image**: `raspivirt-qemu+docker+hotspot`
+
+Incus + Docker + WiFi hotspot
+
+##### RaspiVirt-Incus+HAOS+Hotspot
+**Image**: `raspivirt-qemu+haos+hotspot`
+
+Home automation + WiFi hotspot
+
+**[WiFi Hotspot Documentation](wiki/Image-WiFi-Hotspot.md)**
+
+#### HAOS+Docker Variants
+
+Home Assistant images with Docker support:
+
+##### RaspiVirt-Incus+HAOS+Docker
+**Image**: `raspivirt-qemu+haos+docker`
+
+Complete home automation platform:
+- Home Assistant OS VM
+- Docker Engine with Portainer
+- Watchtower for updates
+- Zigbee/Z-Wave support
+
+```bash
+./bin/autobuild --image raspivirt-qemu+haos+docker
+```
+
+##### RaspiVirt-Incus+HAOS+Docker+Hotspot
+**Image**: `raspivirt-qemu+haos+docker+hotspot`
+
+All-in-one: HAOS + Docker + WiFi hotspot
+
+```bash
+./bin/autobuild --image raspivirt-qemu+haos+docker+hotspot
+```
+
+**[HAOS+Docker Documentation](wiki/Image-HAOS-Docker.md)**
+
+---
+
+**Complete Image Matrix**:
+
+| Base | +Hotspot | +Docker | +HAOS | +HAOS+Docker | +HAOS+Docker+Hotspot |
+|------|----------|---------|-------|--------------|----------------------|
+| ✅ Incus | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### Custom Image Examples
 
