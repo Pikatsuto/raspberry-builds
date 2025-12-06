@@ -216,7 +216,7 @@ else
 fi
 
 # Configure hostapd based on available interfaces
-if [ "$WLAN0_EXISTS" = true ] && [ "$WLAN1_EXISTS" = true ]; then
+if [[ "$WLAN0_EXISTS" == true && "$WLAN1_EXISTS" == true ]]; then
     echo "  wlan0 and wlan1 detected - dual-band configuration"
     echo "    wlan0: 2.4GHz"
     echo "    wlan1: 5GHz"
@@ -252,7 +252,7 @@ if [ "$WLAN0_EXISTS" = true ] && [ "$WLAN1_EXISTS" = true ]; then
     echo "    2.4GHz: enabled on wlan0"
     echo "    5GHz: enabled on wlan1"
 
-elif [ "$WLAN0_EXISTS" = true ]; then
+elif [ "$WLAN0_EXISTS" == true ]; then
     echo "  wlan0 detected (single interface) - 5GHz configuration"
 
     # Disable NetworkManager management of wlan0
@@ -276,7 +276,9 @@ elif [ "$WLAN0_EXISTS" = true ]; then
 
 else
     echo "  No WiFi interface detected - skipping WiFi AP configuration"
-fi# Disable this service for next boots
+fi
+
+# Disable this service for next boots
 echo "Disabling services-first-boot service..."
 systemctl disable services-first-boot.service
 rm -f /etc/systemd/system/services-first-boot.service
