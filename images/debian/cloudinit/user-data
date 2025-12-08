@@ -16,8 +16,7 @@ ssh_pwauth: true
 runcmd:
   - mkdir -p /mnt/setup
   - mount /dev/vdc /mnt/setup
-  - cp -r /mnt/setup/setupfiles /root/setupfiles
+  - cp -r /mnt/setup/setupfiles /etc/setupfiles
   - /mnt/setup/setup
   - umount /mnt/setup
-  - rm -rf /mnt/setup /root/setupfiles
   - poweroff

@@ -64,7 +64,7 @@ Each image in `images/` contains:
 images/image-name/
 ├── config.sh       # Configuration (OUTPUT_IMAGE, IMAGE_SIZE, RAM, CPUs)
 ├── setup.sh        # Script executed at boot in QEMU
-├── setupfiles/     # Files copied to /root/setupfiles/ in the image
+├── setupfiles/     # Files copied to /etc/setupfiles/ in the image
 └── cloudinit/      # Cloud-init configuration specific to this image
     ├── user-data   # Users, SSH, passwords
     ├── meta-data   # Hostname, instance-id

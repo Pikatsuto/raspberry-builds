@@ -174,7 +174,7 @@ images/my-image/
 │                          #  - Configures system (users, services, etc.)
 │                          #  - Runs in native ARM64 environment
 │
-├── setupfiles/            # Files copied to /root/setupfiles/ in image
+├── setupfiles/            # Files copied to /etc/setupfiles/ in image
 │                          #  - Config files, scripts, certificates, etc.
 │                          #  - Available to setup.sh during QEMU execution
 │

@@ -14,12 +14,8 @@ cd "$WORKDIR"
 
 # Global configuration
 RASPIOS_URL="https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-11-24/2025-11-24-raspios-trixie-arm64-lite.img.xz"
-DEBIAN_URL_CLOUD="https://cloud.debian.org/images/cloud/trixie-backports/daily/latest/debian-13-backports-genericcloud-arm64-daily.raw"
-DEBIAN_URL="https://cloud.debian.org/images/cloud/trixie-backports/daily/latest/debian-13-backports-generic-arm64-daily.raw"
 RASPIOS_IMAGE="2025-11-24-raspios-trixie-arm64-lite.img"
-DEBIAN_IMAGE="debian-13-arm64.raw"
-DEBIAN_IMAGE_DOWNLOAD_CLOUD="debian-13-backports-genericcloud-arm64-daily.raw"
-DEBIAN_IMAGE_DOWNLOAD="debian-13-backports-generic-arm64-daily.raw"
+DISTRO_IMAGE="distro-arm64.raw"
 
 # Image variables (overridden by config.sh)
 OUTPUT_IMAGE="pi5-custom.img"
@@ -27,11 +23,15 @@ QEMU_RAM="8G"
 QEMU_CPUS="4"
 IMAGE_SIZE="8G"
 DESCRIPTION=""
+CLOUD=true
+IMAGE_URL=""
 
 # Control variables
 CURRENT_IMAGE=""
 BUILD_ALL_IMAGES=false
 STAGE="all"
+TEMP_IMAGE_DIR=""  # Temporary directory for dynamic images
+QEMU_LOG_FILE=""   # QEMU log file for error detection
 
 # Colors for display
 GREEN='\033[0;32m'
@@ -64,20 +64,134 @@ echo_info() {
 # List all available images
 list_images() {
     echo_info "Available images:"
-    for img_dir in images/*/; do
-        if [ -d "$img_dir" ]; then
-            img_name=$(basename "$img_dir")
-            config_file="$img_dir/config.sh"
+    echo ""
 
-            if [ -f "$config_file" ]; then
-                # Load config to display description
-                source "$config_file"
-                echo "  - $img_name${DESCRIPTION:+ : $DESCRIPTION}"
-            else
-                echo_warn "  - $img_name (no config.sh)"
+    # List distro directories
+    for distro_dir in images/*/; do
+        if [ ! -d "$distro_dir" ]; then
+            continue
+        fi
+
+        local DISTRO=$(basename "$distro_dir")
+
+        # Skip non-distro directories
+        if [ ! -f "${distro_dir}config.sh" ]; then
+            continue
+        fi
+
+        # Load distro config
+        source "${distro_dir}config.sh"
+        echo "  ${DISTRO}${DESCRIPTION:+ : $DESCRIPTION}"
+
+        # Get base services defined in config (these are always included)
+        local BASE_SERVICES="$SERVICES"
+
+        # List available services for this distro
+        if [ -d "${distro_dir}services" ]; then
+            local SERVICES_LIST=""
+            for service_dir in ${distro_dir}services/*/; do
+                if [ -d "$service_dir" ]; then
+                    local SERVICE_NAME=$(basename "$service_dir")
+
+                    # Skip services that are in BASE_SERVICES (always included)
+                    if [[ " $BASE_SERVICES " =~ " $SERVICE_NAME " ]]; then
+                        continue
+                    fi
+
+                    SERVICES_LIST="${SERVICES_LIST}${SERVICE_NAME} "
+                fi
+            done
+
+            if [ -n "$SERVICES_LIST" ]; then
+                echo "    Available services: $(echo $SERVICES_LIST | tr ' ' ', ' | sed 's/, $//')"
+                echo "    Build with: ./bin/autobuild --image ${DISTRO}/service1+service2+..."
             fi
         fi
+
+        # List pre-configured legacy images in distro (skip services/ subdirectory and support directories)
+        local HAS_LEGACY=false
+        for img_dir in ${distro_dir}*/; do
+            if [ ! -d "$img_dir" ]; then
+                continue
+            fi
+
+            local IMG_SUBDIR=$(basename "$img_dir")
+
+            # Skip special directories (services, cloudinit, setupfiles, first-boot)
+            if [[ "$IMG_SUBDIR" =~ ^(services|cloudinit|setupfiles|first-boot)$ ]]; then
+                continue
+            fi
+
+            local CONFIG_FILE="${img_dir}config.sh"
+
+            # Only list if config.sh exists
+            if [ -f "$CONFIG_FILE" ]; then
+                if [ "$HAS_LEGACY" = false ]; then
+                    echo "    Legacy images:"
+                    HAS_LEGACY=true
+                fi
+
+                # Load config to display description
+                source "$CONFIG_FILE"
+                echo "      - ${IMG_SUBDIR}${DESCRIPTION:+ : $DESCRIPTION}"
+            fi
+        done
+
+        echo ""
     done
+
+    echo_info "Dynamic image format examples:"
+    echo "  ./bin/autobuild --image debian                     # Base debian"
+    echo "  ./bin/autobuild --image debian/qemu+haos           # Debian with qemu and haos services"
+    echo ""
+}
+
+# Parse image name to extract distro and services
+# Format: distro/service1+service2 or distro-service1+service2
+parse_image_name() {
+    local img_name="$1"
+    local DISTRO=""
+    local SERVICES=""
+    local IMG_BASE_NAME=""
+
+    # Check if format is distro/services
+    if [[ "$img_name" == *"/"* ]]; then
+        DISTRO=$(echo "$img_name" | cut -d'/' -f1)
+        local services_part=$(echo "$img_name" | cut -d'/' -f2)
+
+        # Convert + to spaces for SERVICES variable
+        SERVICES=$(echo "$services_part" | tr '+' ' ')
+        IMG_BASE_NAME="$DISTRO-$(echo "$services_part" | tr '+' '-')"
+    else
+        # No slash - check if it's just a distro name or has services
+        # If it contains '-' followed by what looks like services, parse it
+        if [[ "$img_name" == *"-"* ]]; then
+            # Try to detect if this is distro-services format
+            local first_part=$(echo "$img_name" | cut -d'-' -f1)
+
+            # Check if first part is a known distro
+            if [ -d "images/$first_part/services" ]; then
+                DISTRO="$first_part"
+                local services_part=$(echo "$img_name" | cut -d'-' -f2-)
+                SERVICES=$(echo "$services_part" | tr '+' ' ')
+                IMG_BASE_NAME="$img_name"
+            else
+                # Not a known distro, assume it's a custom name with default distro (debian)
+                DISTRO="debian"
+                # Extract services part (everything after first -)
+                local services_part=$(echo "$img_name" | sed 's/^[^-]*-//')
+                SERVICES=$(echo "$services_part" | tr '+' ' ')
+                IMG_BASE_NAME="$img_name"
+            fi
+        else
+            # Just a plain name, no services - assume it's a distro or legacy image
+            DISTRO="$img_name"
+            SERVICES=""
+            IMG_BASE_NAME="$img_name"
+        fi
+    fi
+
+    echo "$DISTRO|$SERVICES|$IMG_BASE_NAME"
 }
 
 # Load image configuration
@@ -85,29 +199,119 @@ load_image_config() {
     local img_name="$1"
     local img_dir="images/$img_name"
 
-    if [ ! -d "$img_dir" ]; then
-        echo_error "Image '$img_name' not found in images/"
+    # First, check if physical directory exists (legacy mode)
+    if [ -d "$img_dir" ] && [ -f "$img_dir/config.sh" ]; then
+        # Legacy mode: physical directory with config
+        echo_info "Loading configuration from $img_dir/config.sh"
+        source "$img_dir/config.sh"
+
+        # Check if setup.sh exists (only for legacy mode)
+        MODE=$(detect_services_mode "$img_name")
+        if [ "$MODE" = "legacy" ] && [ ! -f "$img_dir/setup.sh" ]; then
+            echo_error "setup.sh file missing for image '$img_name'"
+            exit 1
+        fi
+
+        CURRENT_IMAGE="$img_name"
+
+        echo_info "Configuration for image '$img_name' loaded"
+        echo "  Output: $OUTPUT_IMAGE"
+        echo "  Size: $IMAGE_SIZE"
+        echo "  QEMU RAM: $QEMU_RAM, CPUs: $QEMU_CPUS"
+        [ -n "$DESCRIPTION" ] && echo "  Description: $DESCRIPTION"
+        return
+    fi
+
+    # Parse image name for dynamic service composition
+    local parsed=$(parse_image_name "$img_name")
+    local DISTRO=$(echo "$parsed" | cut -d'|' -f1)
+    local PARSED_SERVICES=$(echo "$parsed" | cut -d'|' -f2)
+    local IMG_BASE_NAME=$(echo "$parsed" | cut -d'|' -f3)
+
+    # Check if distro exists
+    if [ ! -d "images/$DISTRO" ]; then
+        echo_error "Distribution '$DISTRO' not found in images/"
         echo ""
         list_images
         exit 1
     fi
 
-    if [ ! -f "$img_dir/config.sh" ]; then
-        echo_error "config.sh file missing for image '$img_name'"
+    # Check if distro has a base config
+    if [ ! -f "images/$DISTRO/config.sh" ]; then
+        echo_error "config.sh missing for distribution '$DISTRO'"
         exit 1
     fi
 
-    if [ ! -f "$img_dir/setup.sh" ]; then
-        echo_error "setup.sh file missing for image '$img_name'"
-        exit 1
+    # Load base distro config
+    echo_info "Loading base configuration from images/$DISTRO/config.sh"
+    source "images/$DISTRO/config.sh"
+
+    # Save base services (always included)
+    local BASE_SERVICES="$SERVICES"
+
+    # Override with dynamic services if specified
+    if [ -n "$PARSED_SERVICES" ]; then
+        echo_info "Building dynamic image with services: $PARSED_SERVICES"
+
+        # Verify all services exist
+        for service in $PARSED_SERVICES; do
+            if [ ! -d "images/$DISTRO/services/$service" ]; then
+                echo_error "Service '$service' not found in images/$DISTRO/services/"
+                exit 1
+            fi
+        done
+
+        # Combine base services with user-specified services
+        # Remove duplicates while preserving order (base services first)
+        local ALL_SERVICES=""
+        local SEEN_SERVICES=""
+
+        # Add base services first
+        for service in $BASE_SERVICES; do
+            ALL_SERVICES="$ALL_SERVICES$service "
+            SEEN_SERVICES="$SEEN_SERVICES$service "
+        done
+
+        # Add user services (skip if already in base)
+        for service in $PARSED_SERVICES; do
+            if [[ ! " $SEEN_SERVICES " =~ " $service " ]]; then
+                ALL_SERVICES="$ALL_SERVICES$service "
+            fi
+        done
+
+        # Set final SERVICES variable (trim trailing space)
+        SERVICES=$(echo "$ALL_SERVICES" | xargs)
+
+        # Generate output image name if not custom
+        OUTPUT_IMAGE="${IMG_BASE_NAME}.img"
+        DESCRIPTION="$DISTRO with services: $(echo $PARSED_SERVICES | tr ' ' '+')"
     fi
 
-    # Load configuration
-    source "$img_dir/config.sh"
+    # Create virtual image directory for dynamic builds in /tmp
+    # Use short prefix to avoid mktemp template length issues with long image names
+    TEMP_IMAGE_DIR=$(mktemp -d -t "rpi-build-${IMG_BASE_NAME}.XXXXXX")
+    img_dir="$TEMP_IMAGE_DIR"
+
+    echo_info "Using temporary directory: $TEMP_IMAGE_DIR (for $IMG_BASE_NAME)"
+
+    # Create virtual config.sh in the temporary directory
+    cat > "$img_dir/config.sh" << EOF
+# Auto-generated config for dynamic image build
+OUTPUT_IMAGE="$OUTPUT_IMAGE"
+IMAGE_SIZE="$IMAGE_SIZE"
+QEMU_RAM="$QEMU_RAM"
+QEMU_CPUS="$QEMU_CPUS"
+CLOUD=$CLOUD
+IMAGE_URL="$IMAGE_URL"
+SERVICES="$SERVICES"
+DESCRIPTION="$DESCRIPTION"
+EOF
 
     CURRENT_IMAGE="$img_name"
 
-    echo_info "Configuration for image '$img_name' loaded"
+    echo_info "Dynamic configuration for image '$img_name' created"
+    echo "  Distro: $DISTRO"
+    echo "  Services: ${SERVICES:-none}"
     echo "  Output: $OUTPUT_IMAGE"
     echo "  Size: $IMAGE_SIZE"
     echo "  QEMU RAM: $QEMU_RAM, CPUs: $QEMU_CPUS"
@@ -178,36 +382,33 @@ check_dependencies() {
     echo_success "All required dependencies for stage $stage are installed"
 }
 
-# Detect boot mode (cloudinit or firstboot)
+# Detect boot mode from CLOUD variable in config.sh
 detect_boot_mode() {
-    local img_name="$1"
-    local img_dir="images/$img_name"
-
-    if [ -d "$img_dir/first-boot" ]; then
-        echo "firstboot"
-    elif [ -d "$img_dir/cloudinit" ]; then
+    if [ "$CLOUD" = true ]; then
         echo "cloudinit"
     else
-        echo "none"
+        echo "firstboot"
     fi
 }
 
-# Inject first-boot service into Debian image
+# Inject first-boot service into distro image (for CLOUD=false)
 inject_firstboot_service() {
-    local img_name="$1"
-    local img_dir="images/$img_name"
+    local IMG_NAME="$1"
+    local IMG_DIR="images/$IMG_NAME"
+    local DISTRO=$(echo "$IMG_NAME" | cut -d'/' -f1)
+    local FIRSTBOOT_DIR="images/$DISTRO/first-boot"
 
-    echo "  Injecting first-boot service into Debian image..."
+    echo "  Injecting first-boot service into distribution image..."
 
-    # Verify first-boot files exist
-    if [ ! -f "$img_dir/first-boot/setup-runner.sh" ] || [ ! -f "$img_dir/first-boot/setup-runner.service" ]; then
-        echo_error "Missing files in $img_dir/first-boot/"
+    # Verify first-boot files exist in distro directory
+    if [ ! -f "$FIRSTBOOT_DIR/setup-runner.sh" ] || [ ! -f "$FIRSTBOOT_DIR/setup-runner.service" ]; then
+        echo_error "Missing files in $FIRSTBOOT_DIR/"
         echo "Required: setup-runner.sh, setup-runner.service"
         exit 1
     fi
 
-    # Find partition in Debian image
-    LOOP_DEV=$(sudo losetup -fP --show "$DEBIAN_IMAGE")
+    # Find partition in distro image
+    LOOP_DEV=$(sudo losetup -fP --show "$DISTRO_IMAGE")
 
     # Detect rootfs partition (ext4 filesystem)
     ROOT_PART=""
@@ -223,7 +424,7 @@ inject_firstboot_service() {
     done
 
     if [ -z "$ROOT_PART" ]; then
-        echo_error "Cannot find ext4 rootfs partition in $DEBIAN_IMAGE"
+        echo_error "Cannot find ext4 rootfs partition in $DISTRO_IMAGE"
         sudo losetup -d "$LOOP_DEV"
         exit 1
     fi
@@ -233,9 +434,9 @@ inject_firstboot_service() {
     sudo mount "$ROOT_PART" "$MOUNT_DIR"
 
     # Copy first-boot files
-    sudo cp "$img_dir/first-boot/setup-runner.sh" "$MOUNT_DIR/root/setup-runner.sh"
+    sudo cp "$FIRSTBOOT_DIR/setup-runner.sh" "$MOUNT_DIR/root/setup-runner.sh"
     sudo chmod +x "$MOUNT_DIR/root/setup-runner.sh"
-    sudo cp "$img_dir/first-boot/setup-runner.service" "$MOUNT_DIR/etc/systemd/system/setup-runner.service"
+    sudo cp "$FIRSTBOOT_DIR/setup-runner.service" "$MOUNT_DIR/etc/systemd/system/setup-runner.service"
 
     # Enable service using chroot
     sudo chroot "$MOUNT_DIR" systemctl enable setup-runner.service 2>/dev/null || true
@@ -250,8 +451,13 @@ inject_firstboot_service() {
 
 # Download base images
 download_images() {
-    local img_name="$1"
-    local img_dir="images/$img_name"
+    local IMG_NAME="$1"
+    local IMG_DIR=$(get_image_dir "$IMG_NAME")
+
+    # Parse image name to get distro
+    local parsed=$(parse_image_name "$IMG_NAME")
+    local DISTRO=$(echo "$parsed" | cut -d'|' -f1)
+    local DISTRO_DIR="images/$DISTRO"
 
     echo_step "Downloading base images..."
 
@@ -268,51 +474,313 @@ download_images() {
         echo_success "Raspberry Pi OS already present"
     fi
 
-    # Detect boot mode and prepare accordingly
-    BOOT_MODE=$(detect_boot_mode "$img_name")
-
-    # Debian
-    if [[ ! -f "$DEBIAN_IMAGE_DOWNLOAD_CLOUD" && "$BOOT_MODE" = "cloudinit" ]]; then
-        echo "  Downloading Debian ARM64..."
-        wget -c "$DEBIAN_URL_CLOUD" -O "$DEBIAN_IMAGE_DOWNLOAD_CLOUD"
-    elif [[ ! -f "$DEBIAN_IMAGE_DOWNLOAD" && "$BOOT_MODE" = "firstboot" ]]; then
-        echo "  Downloading Debian ARM64..."
-        wget -c "$DEBIAN_URL" -O "$DEBIAN_IMAGE_DOWNLOAD"
-    else
-        echo_success "Debian ARM64 already present"
+    # Get IMAGE_URL from config
+    if [ -z "$IMAGE_URL" ]; then
+        echo_error "IMAGE_URL not defined in config.sh"
+        exit 1
     fi
 
-    echo "  Copying Debian ARM64 image..."
-    rm -f "$DEBIAN_IMAGE"
-    [ "$BOOT_MODE" = "cloudinit" ] && cp "$DEBIAN_IMAGE_DOWNLOAD_CLOUD" "$DEBIAN_IMAGE"
-    [ "$BOOT_MODE" = "firstboot" ] && cp "$DEBIAN_IMAGE_DOWNLOAD" "$DEBIAN_IMAGE"
+    # Determine download filename from URL
+    DOWNLOAD_FILENAME=$(basename "$IMAGE_URL")
+
+    # Download distribution image if needed
+    if [ ! -f "$DOWNLOAD_FILENAME" ]; then
+        echo "  Downloading base distribution image from IMAGE_URL..."
+        wget -c "$IMAGE_URL" -O "$DOWNLOAD_FILENAME"
+    else
+        echo_success "Base distribution image already present ($DOWNLOAD_FILENAME)"
+    fi
+
+    # Copy to working image
+    echo "  Copying base distribution image to $DISTRO_IMAGE..."
+    rm -f "$DISTRO_IMAGE"
+    cp "$DOWNLOAD_FILENAME" "$DISTRO_IMAGE"
+
+    # Detect boot mode from CLOUD variable
+    BOOT_MODE=$(detect_boot_mode)
+    echo "  Boot mode: $BOOT_MODE (CLOUD=$CLOUD)"
 
     if [ "$BOOT_MODE" = "cloudinit" ]; then
         echo "  Using cloud-init boot mode..."
-        echo "  Generating cloud-init seed.img for '$img_name'..."
 
-        rm -f "$img_dir/cloudinit/seed.img"
-        genisoimage -quiet -output "$img_dir/cloudinit/seed.img" \
+        # For dynamic images, use cloudinit from distro base directory
+        # For legacy images, use cloudinit from image directory
+        local CLOUDINIT_DIR=""
+        if [ -d "$IMG_DIR/cloudinit" ]; then
+            # Legacy image with its own cloudinit
+            CLOUDINIT_DIR="$IMG_DIR/cloudinit"
+        elif [ -d "$DISTRO_DIR/cloudinit" ]; then
+            # Dynamic image - use distro's cloudinit
+            CLOUDINIT_DIR="$DISTRO_DIR/cloudinit"
+            echo "  Using cloud-init from distro: $DISTRO_DIR/cloudinit"
+        else
+            echo_error "CLOUD=true but no cloudinit directory found"
+            echo "  Checked: $IMG_DIR/cloudinit and $DISTRO_DIR/cloudinit"
+            exit 1
+        fi
+
+        # Create cloudinit symlink in image dir if it doesn't exist
+        if [ ! -d "$IMG_DIR/cloudinit" ] && [ "$CLOUDINIT_DIR" != "$IMG_DIR/cloudinit" ]; then
+            mkdir -p "$IMG_DIR"
+            ln -sf "$(realpath --relative-to="$IMG_DIR" "$CLOUDINIT_DIR")" "$IMG_DIR/cloudinit"
+        fi
+
+        echo "  Generating cloud-init seed.img..."
+        rm -f "$IMG_DIR/cloudinit/seed.img"
+        genisoimage -quiet -output "$IMG_DIR/cloudinit/seed.img" \
             -volid cidata \
             -joliet -rock \
-            "$img_dir/cloudinit/user-data" \
-            "$img_dir/cloudinit/meta-data"
+            "$CLOUDINIT_DIR/user-data" \
+            "$CLOUDINIT_DIR/meta-data"
         echo_success "cloud-init seed.img generated"
-    elif [ "$BOOT_MODE" = "firstboot" ]; then
-        echo "  Using first-boot service mode (no cloud-init)..."
-        inject_firstboot_service "$img_name"
     else
-        echo_error "No cloudinit/ or first-boot/ found in $img_dir"
-        exit 1
+        echo "  Using first-boot service mode (no cloud-init)..."
+        inject_firstboot_service "$IMG_NAME"
     fi
 
     echo_success "Base images ready"
 }
 
+# Get the correct image directory (temp for dynamic, images/ for legacy)
+get_image_dir() {
+    local img_name="$1"
+
+    # If TEMP_IMAGE_DIR is set (dynamic image), use it
+    if [ -n "$TEMP_IMAGE_DIR" ] && [ -d "$TEMP_IMAGE_DIR" ]; then
+        echo "$TEMP_IMAGE_DIR"
+    else
+        # Legacy image
+        echo "images/$img_name"
+    fi
+}
+
+# Detect if image uses services system
+detect_services_mode() {
+    local img_name="$1"
+    local img_dir=$(get_image_dir "$img_name")
+
+    # Check if config.sh defines SERVICES variable
+    if [ -f "$img_dir/config.sh" ]; then
+        if grep -q "^SERVICES=" "$img_dir/config.sh"; then
+            echo "services"
+            return
+        fi
+    fi
+
+    echo "legacy"
+}
+
+# Build setup from modular services
+build_services_setup() {
+    local img_name="$1"
+    local img_dir=$(get_image_dir "$img_name")
+
+    echo_step "Building setup from modular services for '$img_name'..."
+
+    # Load SERVICES from config.sh
+    source "$img_dir/config.sh"
+
+    if [ -z "$SERVICES" ]; then
+        echo_error "SERVICES variable not defined in config.sh"
+        exit 1
+    fi
+
+    echo "  Services to combine: $SERVICES"
+
+    # Determine distro from image name (supports both legacy and dynamic formats)
+    local parsed=$(parse_image_name "$img_name")
+    local distro=$(echo "$parsed" | cut -d'|' -f1)
+    local services_dir="images/$distro/services"
+
+    if [ ! -d "$services_dir" ]; then
+        echo_error "Services directory not found: $services_dir"
+        exit 1
+    fi
+
+    echo "  Using services from: $services_dir"
+
+    # Resolve service dependencies and order them correctly
+    # Order: base services -> their dependencies -> additional requested services
+    local final_services=""
+    local processed_services=""
+
+    # Helper function to recursively resolve dependencies in correct order
+    resolve_dependencies() {
+        local service="$1"
+
+        # Skip if already processed
+        if echo " $processed_services " | grep -q " $service "; then
+            return
+        fi
+
+        # Check if service exists
+        if [ ! -d "$services_dir/$service" ]; then
+            echo_error "Service '$service' not found in $services_dir"
+            exit 1
+        fi
+
+        # Load dependencies if exists
+        local depends_file="$services_dir/$service/depends.sh"
+        local DEPENDS_ON=""
+
+        if [ -f "$depends_file" ]; then
+            source "$depends_file"
+        fi
+
+        # First, recursively resolve all dependencies
+        if [ -n "$DEPENDS_ON" ]; then
+            echo "  Service '$service' depends on: $DEPENDS_ON"
+            for dep in $DEPENDS_ON; do
+                resolve_dependencies "$dep"
+            done
+        fi
+
+        # Then add this service (after all its dependencies)
+        processed_services="$processed_services $service"
+        final_services="$final_services $service"
+    }
+
+    # Process all services in order: base services first, then additional ones
+    for service in $SERVICES; do
+        resolve_dependencies "$service"
+    done
+
+    # Remove leading/trailing spaces and update SERVICES
+    SERVICES=$(echo "$final_services" | xargs)
+    echo "  Final service list with dependencies: $SERVICES"
+
+    # Create temporary directory for combined setup
+    COMBINED_DIR=$(mktemp -d)
+    mkdir -p "$COMBINED_DIR/setupfiles"
+
+    # Initialize combined setup.sh
+    cat > "$COMBINED_DIR/setup.sh" << 'EOF'
+#!/bin/bash
+set -e
+
+# ============================================================================
+# Auto-generated setup script from modular services
+# ============================================================================
+
+echo "======================================"
+echo "Starting rootfs configuration"
+echo "======================================"
+
+EOF
+
+    # Combine setup.sh from each service
+    for service in $SERVICES; do
+        service_path="$services_dir/$service"
+
+        if [ ! -d "$service_path" ]; then
+            echo_error "Service '$service' not found in $services_dir"
+            rm -rf "$COMBINED_DIR"
+            exit 1
+        fi
+
+        if [ -f "$service_path/setup.sh" ]; then
+            echo "  Adding service: $service"
+
+            # Append service setup (skip shebang and set -e lines)
+            tail -n +3 "$service_path/setup.sh" >> "$COMBINED_DIR/setup.sh"
+            echo "" >> "$COMBINED_DIR/setup.sh"
+        fi
+
+        # Copy setupfiles from service
+        if [ -d "$service_path/setupfiles" ]; then
+            cp -r "$service_path/setupfiles/"* "$COMBINED_DIR/setupfiles/" 2>/dev/null || true
+        fi
+
+        # Copy motd.sh to motd.d if it exists
+        if [ -f "$service_path/motd.sh" ]; then
+            mkdir -p "$COMBINED_DIR/setupfiles/motd.d"
+            cp "$service_path/motd.sh" "$COMBINED_DIR/setupfiles/motd.d/${service}.sh" 2>/dev/null || true
+        fi
+    done
+
+    # Add cleanup and completion at the end
+    cat >> "$COMBINED_DIR/setup.sh" << 'EOF'
+
+# Cleanup
+echo "Cleaning up..."
+apt autoremove -y --purge
+apt clean
+rm -rf /var/lib/apt/lists/*
+
+# Create flag file to indicate setup is complete
+echo "Finalizing..."
+touch /root/setup-completed
+date > /root/setup-completed
+
+echo "======================================"
+echo "Configuration completed successfully!"
+echo "======================================"
+EOF
+
+    # Build services-first-boot.sh from service first-boot scripts
+    SERVICES_FIRSTBOOT="$COMBINED_DIR/setupfiles/services-first-boot.sh"
+
+    if [ -f "$services_dir/base/setupfiles/services-first-boot.sh" ]; then
+        cp "$services_dir/base/setupfiles/services-first-boot.sh" "$SERVICES_FIRSTBOOT"
+    else
+        echo_error "Base services-first-boot.sh not found in $services_dir/base/setupfiles/"
+        rm -rf "$COMBINED_DIR"
+        exit 1
+    fi
+
+    # Inject first-boot init scripts from services
+    for service in $SERVICES; do
+        service_firstboot="$services_dir/$service/first-boot/init.sh"
+
+        if [ -f "$service_firstboot" ]; then
+            echo "  Adding first-boot init: $service"
+
+            # Create a temporary file with the service header and content
+            SERVICE_CONTENT=$(mktemp)
+            echo "" >> "$SERVICE_CONTENT"
+            echo "# ------ $service service ------" >> "$SERVICE_CONTENT"
+            cat "$service_firstboot" >> "$SERVICE_CONTENT"
+            echo "" >> "$SERVICE_CONTENT"
+
+            # Insert before END marker using a more robust method
+            awk -v content="$SERVICE_CONTENT" '
+                /# ====== END SERVICES INITIALIZATION ======/ {
+                    while ((getline line < content) > 0) {
+                        print line
+                    }
+                    close(content)
+                }
+                { print }
+            ' "$SERVICES_FIRSTBOOT" > "${SERVICES_FIRSTBOOT}.tmp"
+
+            mv "${SERVICES_FIRSTBOOT}.tmp" "$SERVICES_FIRSTBOOT"
+            rm -f "$SERVICE_CONTENT"
+        fi
+    done
+
+    # Copy generated files to image directory
+    mkdir -p "$img_dir"
+    cp "$COMBINED_DIR/setup.sh" "$img_dir/setup.sh"
+    rm -rf "$img_dir/setupfiles"
+    cp -r "$COMBINED_DIR/setupfiles" "$img_dir/setupfiles"
+
+    # Cleanup
+    rm -rf "$COMBINED_DIR"
+
+    echo_success "Setup built from services: $SERVICES"
+}
+
 # Create setup.iso for an image
 create_setup_iso() {
     local img_name="$1"
-    local img_dir="images/$img_name"
+    local img_dir=$(get_image_dir "$img_name")
+
+    # Check if image uses services system
+    MODE=$(detect_services_mode "$img_name")
+
+    if [ "$MODE" = "services" ]; then
+        build_services_setup "$img_name"
+    fi
 
     echo_step "Creating $img_dir/setup.iso for '$img_name'..."
     rm -f "$img_dir/setup.iso"
@@ -352,7 +820,7 @@ create_setup_iso() {
 # Launch QEMU with automatic setup
 run_qemu_setup() {
     local img_name="$1"
-    local img_dir="images/$img_name"
+    local img_dir=$(get_image_dir "$img_name")
 
     echo_step "Launching QEMU for automatic setup..."
     echo "  Image: $CURRENT_IMAGE"
@@ -376,17 +844,17 @@ run_qemu_setup() {
         exit 1
     fi
 
-    # Resize Debian image to final size for package installations
-    echo_step "Resizing Debian image for package installation..."
+    # Resize distro image to final size for package installations
+    echo_step "Resizing distribution image for package installation..."
     QEMU_IMAGE_SIZE="$IMAGE_SIZE"  # Use final image size from config.sh
 
-    echo "  Current image size: $(du -h "$DEBIAN_IMAGE" | cut -f1)"
-    qemu-img resize "$DEBIAN_IMAGE" "$QEMU_IMAGE_SIZE"
+    echo "  Current image size: $(du -h "$DISTRO_IMAGE" | cut -f1)"
+    qemu-img resize "$DISTRO_IMAGE" "$QEMU_IMAGE_SIZE"
     echo "  Image resized to: $QEMU_IMAGE_SIZE"
 
     # Expand partition and filesystem
     echo "  Expanding partition and filesystem..."
-    LOOP_DEV=$(sudo losetup -fP --show "$DEBIAN_IMAGE")
+    LOOP_DEV=$(sudo losetup -fP --show "$DISTRO_IMAGE")
 
     # Detect rootfs partition (ext4 filesystem)
     ROOTFS_PART=""
@@ -472,10 +940,11 @@ run_qemu_setup() {
 
     # Cleanup
     sudo losetup -d "$LOOP_DEV"
-    echo_success "Debian image resized successfully"
+    echo_success "Distribution image resized successfully"
     echo ""
 
     # Launch QEMU with appropriate drives based on boot mode
+    # Note: || true prevents script exit on QEMU errors (we only check /root/setup-completed)
     if [ "$BOOT_MODE" = "cloudinit" ]; then
         # Cloud-init mode: mount both seed.img and setup.iso
         qemu-system-aarch64 \
@@ -484,12 +953,12 @@ run_qemu_setup() {
             -m "$QEMU_RAM" \
             -smp "$QEMU_CPUS" \
             -bios "$UEFI_BIOS" \
-            -drive file="$DEBIAN_IMAGE",format=raw,if=virtio \
+            -drive file="$DISTRO_IMAGE",format=raw,if=virtio \
             -drive file="$img_dir/cloudinit/seed.img",format=raw,if=virtio \
             -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
             -device virtio-net-pci,netdev=net0 \
             -netdev user,id=net0 \
-            -nographic
+            -nographic || true
     elif [ "$BOOT_MODE" = "firstboot" ]; then
         # First-boot mode: mount only setup.iso (service is already injected)
         qemu-system-aarch64 \
@@ -498,13 +967,57 @@ run_qemu_setup() {
             -m "$QEMU_RAM" \
             -smp "$QEMU_CPUS" \
             -bios "$UEFI_BIOS" \
-            -drive file="$DEBIAN_IMAGE",format=raw,if=virtio \
+            -drive file="$DISTRO_IMAGE",format=raw,if=virtio \
             -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
             -device virtio-net-pci,netdev=net0 \
             -netdev user,id=net0 \
-            -nographic
+            -nographic || true
     else
         echo_error "Unknown boot mode: $BOOT_MODE"
+        exit 1
+    fi
+
+    # Verify setup completed successfully
+    echo_step "Verifying setup completion..."
+    LOOP_DEV=$(sudo losetup -fP --show "$DISTRO_IMAGE")
+
+    # Find rootfs partition
+    ROOT_PART=""
+    for part in ${LOOP_DEV}p*; do
+        if [ -b "$part" ]; then
+            FS_TYPE=$(sudo blkid -s TYPE -o value "$part" 2>/dev/null || true)
+            if [ "$FS_TYPE" = "ext4" ]; then
+                ROOT_PART="$part"
+                break
+            fi
+        fi
+    done
+
+    if [ -z "$ROOT_PART" ]; then
+        echo_error "Cannot find rootfs partition for verification!"
+        sudo losetup -d "$LOOP_DEV"
+        exit 1
+    fi
+
+    # Mount and check for completion flag
+    MOUNT_DIR=$(mktemp -d)
+    sudo mount "$ROOT_PART" "$MOUNT_DIR"
+    SETUP_COMPLETED=false
+
+    if sudo test -f "$MOUNT_DIR/root/setup-completed"; then
+        SETUP_COMPLETED=true
+        echo_success "Setup completed flag found"
+    fi
+
+    sudo umount "$MOUNT_DIR"
+    sudo losetup -d "$LOOP_DEV"
+    rm -rf "$MOUNT_DIR"
+
+    # Handle setup failure
+    if [ "$SETUP_COMPLETED" = false ]; then
+        echo_error "QEMU setup failed!"
+        echo_error "Setup completion flag not found at /root/setup-completed"
+        echo_error "The setup.sh script did not run to completion."
         exit 1
     fi
 
@@ -514,7 +1027,7 @@ run_qemu_setup() {
     echo_success "Cleanup completed"
 
     echo ""
-    echo_success "QEMU finished - Setup completed for '$CURRENT_IMAGE'"
+    echo_success "QEMU finished - Setup completed successfully for '$CURRENT_IMAGE'"
 }
 
 # Build Raspberry Pi image
@@ -527,9 +1040,9 @@ build_rpi_image() {
         -o "$OUTPUT_IMAGE" \
         -s "$IMAGE_SIZE" \
         "$RASPIOS_IMAGE" \
-        "$DEBIAN_IMAGE"
+        "$DISTRO_IMAGE"
 
-    rm -f "$DEBIAN_IMAGE"
+    rm -f "$DISTRO_IMAGE"
 
     echo_success "Hybrid image created: $OUTPUT_IMAGE"
 }
@@ -635,6 +1148,14 @@ EOF
         echo "  📦 ${OUTPUT_IMAGE}"
     fi
     echo ""
+
+    # Cleanup temporary directory if it exists
+    if [ -n "$TEMP_IMAGE_DIR" ] && [ -d "$TEMP_IMAGE_DIR" ]; then
+        echo_step "Cleaning up temporary directory..."
+        rm -rf "$TEMP_IMAGE_DIR"
+        TEMP_IMAGE_DIR=""
+        echo_success "Temporary directory removed"
+    fi
 }
 
 # Build all images

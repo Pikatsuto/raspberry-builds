@@ -23,12 +23,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: List available images
+      - name: List available images from .github/images.txt
         id: list
         run: |
-          images=$(ls -d images/*/ | xargs -n 1 basename | jq -R -s -c 'split("\n")[:-1]')
+          # Read images from .github/images.txt, filter out comments and empty lines
+          images=$(grep -v '^#' .github/images.txt | grep -v '^$' | jq -R -s -c 'split("\n")[:-1]')
           echo "images=$images" >> $GITHUB_OUTPUT
-          echo "Detected images: $images"
+          echo "Images to build:"
+          grep -v '^#' .github/images.txt | grep -v '^$'
 
   # Job 2: Stage 1 - Download and Prepare (parallel for all images)
   stage1-download:
@@ -40,6 +42,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+          echo "Artifact name: ${SANITIZED}"
 
       - name: Free disk space
         run: |
@@ -61,12 +71,12 @@ jobs:
 
       - name: Stage 1 - Download and prepare for ${{ matrix.image }}
         run: |
-          ./bin/autobuild --image ${{ matrix.image }} --stage 1
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 1
 
       - name: Upload base images (cache)
         uses: actions/upload-artifact@v5
         with:
-          name: base-images-${{ matrix.image }}
+          name: base-images-${{ steps.artifact.outputs.name }}
           path: |
             *.img
             *.raw
@@ -86,6 +96,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+
       - name: Install QEMU dependencies
         run: |
           sudo apt update
@@ -97,19 +114,19 @@ jobs:
       - name: Download base images from stage 1
         uses: actions/download-artifact@v6
         with:
-          name: base-images-${{ matrix.image }}
+          name: base-images-${{ steps.artifact.outputs.name }}
 
       - name: Stage 2 - QEMU setup for ${{ matrix.image }}
         run: |
-          ./bin/autobuild --image ${{ matrix.image }} --stage 2
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 2
         timeout-minutes: 60
 
       - name: Upload Debian image after QEMU
         uses: actions/upload-artifact@v5
         with:
-          name: debian-configured-${{ matrix.image }}
+          name: distro-configured-${{ steps.artifact.outputs.name }}
           path: |
-            debian-13-arm64.raw
+            distro-arm64.raw
           retention-days: 1
           compression-level: 0
 
@@ -123,6 +140,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
 
       - name: Install build dependencies
         run: |
@@ -144,24 +168,24 @@ jobs:
       - name: Download RaspiOS image from stage 1
         uses: actions/download-artifact@v6
         with:
-          name: base-images-${{ matrix.image }}
+          name: base-images-${{ steps.artifact.outputs.name }}
           pattern: '*.img'
 
-      - name: Download configured Debian image from stage 2
+      - name: Download configured distro image from stage 2
         uses: actions/download-artifact@v6
         with:
-          name: debian-configured-${{ matrix.image }}
+          name: distro-configured-${{ steps.artifact.outputs.name }}
 
       - name: Stage 3 - Build hybrid image for ${{ matrix.image }}
         run: |
-          ./bin/autobuild --image ${{ matrix.image }} --stage 3
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 3
 
       - name: Upload hybrid image
         uses: actions/upload-artifact@v5
         with:
-          name: hybrid-image-${{ matrix.image }}
+          name: hybrid-image-${{ steps.artifact.outputs.name }}
           path: |
-            rpi-*.img
+            *.img
           retention-days: 1
           compression-level: 0
 
@@ -176,6 +200,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+
       - name: Install PiShrink
         run: |
           wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
@@ -185,12 +216,12 @@ jobs:
       - name: Download hybrid image from stage 3
         uses: actions/download-artifact@v6
         with:
-          name: hybrid-image-${{ matrix.image }}
+          name: hybrid-image-${{ steps.artifact.outputs.name }}
 
       - name: Stage 4 - Compress image for ${{ matrix.image }}
         run: |
           # Find the .img file for this image
-          IMAGE_FILE=$(ls rpi-*.img)
+          IMAGE_FILE=$(ls *.img | head -1)
           echo "Compressing $IMAGE_FILE"
 
           # Compress with PiShrink
@@ -199,9 +230,9 @@ jobs:
       - name: Upload compressed image
         uses: actions/upload-artifact@v5
         with:
-          name: final-image-${{ matrix.image }}
+          name: final-image-${{ steps.artifact.outputs.name }}
           path: |
-            rpi-*.img.xz
+            *.img.xz
           retention-days: 7
 
   # Job 6: Create Release
