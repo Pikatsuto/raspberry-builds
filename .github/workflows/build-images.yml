@@ -401,6 +401,7 @@ jobs:
           name: hybrid-image-${{ steps.artifact.outputs.name }}
           path: |
             *.img
+            !*raspios*.img
           retention-days: 1
           compression-level: 0
 
@@ -438,12 +439,23 @@ jobs:
 
       - name: Stage 4 - Compress image for ${{ matrix.image }}
         run: |
-          # Find the .img file for this image
-          IMAGE_FILE=$(ls *.img | head -1)
-          echo "Compressing $IMAGE_FILE"
+          # Find the .img file (should be only one after stage 3 filtering)
+          IMAGE_FILE=$(ls *.img 2>/dev/null | head -1)
+
+          if [ -z "$IMAGE_FILE" ]; then
+            echo "ERROR: No .img file found!"
+            ls -la
+            exit 1
+          fi
+
+          echo "Found image: $IMAGE_FILE"
+          echo "Compressing $IMAGE_FILE with PiShrink..."
 
           # Compress with PiShrink
           sudo pishrink.sh -aZ "$IMAGE_FILE"
+
+          echo "Compression complete. Output:"
+          ls -lh *.img.xz
 
       - name: Upload to release
         run: |
