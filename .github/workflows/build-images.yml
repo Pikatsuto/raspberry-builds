@@ -410,3 +410,36 @@ jobs:
           # Clean up large files
           sudo rm -f *.img *.img.xz
           df -h
+
+  # Job 6: Cleanup empty release (runs after all builds complete or fail)
+  cleanup-release:
+    needs: [create-release, stage4-compress]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check release and delete if empty
+        run: |
+          RELEASE_TAG="${{ needs.create-release.outputs.tag }}"
+
+          echo "Checking release $RELEASE_TAG for assets..."
+
+          # Get asset count from release
+          ASSET_COUNT=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
+
+          echo "Release has $ASSET_COUNT asset(s)"
+
+          if [ "$ASSET_COUNT" -eq 0 ]; then
+            echo "⚠️ Release $RELEASE_TAG is empty (no assets uploaded)"
+            echo "Deleting empty release..."
+            gh release delete "$RELEASE_TAG" --yes
+            echo "✅ Empty release deleted successfully"
+          else
+            echo "✅ Release $RELEASE_TAG has $ASSET_COUNT asset(s), keeping it"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
