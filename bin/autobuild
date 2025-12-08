@@ -519,20 +519,17 @@ download_images() {
             exit 1
         fi
 
-        # Create cloudinit symlink in image dir if it doesn't exist
-        if [ ! -d "$IMG_DIR/cloudinit" ] && [ "$CLOUDINIT_DIR" != "$IMG_DIR/cloudinit" ]; then
-            mkdir -p "$IMG_DIR"
-            ln -sf "$(realpath --relative-to="$IMG_DIR" "$CLOUDINIT_DIR")" "$IMG_DIR/cloudinit"
-        fi
-
         echo "  Generating cloud-init seed.img..."
-        rm -f "$IMG_DIR/cloudinit/seed.img"
-        genisoimage -quiet -output "$IMG_DIR/cloudinit/seed.img" \
+        # For dynamic images, store seed.img in distro directory (persistent across stages)
+        # For legacy images, store in image directory
+        local SEED_IMG_PATH="$CLOUDINIT_DIR/seed.img"
+        rm -f "$SEED_IMG_PATH"
+        genisoimage -quiet -output "$SEED_IMG_PATH" \
             -volid cidata \
             -joliet -rock \
             "$CLOUDINIT_DIR/user-data" \
             "$CLOUDINIT_DIR/meta-data"
-        echo_success "cloud-init seed.img generated"
+        echo_success "cloud-init seed.img generated at $SEED_IMG_PATH"
     else
         echo "  Using first-boot service mode (no cloud-init)..."
         inject_firstboot_service "$IMG_NAME"
@@ -775,6 +772,11 @@ create_setup_iso() {
     local img_name="$1"
     local img_dir=$(get_image_dir "$img_name")
 
+    # Parse image name to get distro (for persistent path)
+    local parsed=$(parse_image_name "$img_name")
+    local DISTRO=$(echo "$parsed" | cut -d'|' -f1)
+    local DISTRO_DIR="images/$DISTRO"
+
     # Check if image uses services system
     MODE=$(detect_services_mode "$img_name")
 
@@ -782,8 +784,20 @@ create_setup_iso() {
         build_services_setup "$img_name"
     fi
 
-    echo_step "Creating $img_dir/setup.iso for '$img_name'..."
-    rm -f "$img_dir/setup.iso"
+    # For dynamic images, store setup.iso in distro directory (persistent across stages)
+    # For legacy images, store in image directory
+    local SETUP_ISO_PATH=""
+    if [ -n "$TEMP_IMAGE_DIR" ] && [ -d "$TEMP_IMAGE_DIR" ]; then
+        # Dynamic image - use distro directory
+        SETUP_ISO_PATH="$DISTRO_DIR/setup.iso"
+        echo_step "Creating $DISTRO_DIR/setup.iso for '$img_name'..."
+    else
+        # Legacy image - use image directory
+        SETUP_ISO_PATH="$img_dir/setup.iso"
+        echo_step "Creating $img_dir/setup.iso for '$img_name'..."
+    fi
+
+    rm -f "$SETUP_ISO_PATH"
 
     # Verify files exist
     if [ ! -f "$img_dir/setup.sh" ]; then
@@ -807,20 +821,25 @@ create_setup_iso() {
     cp -r "$img_dir/setupfiles" "$SETUP_ISO_DIR/setupfiles"
 
     # Create ISO (use -graft-points to preserve directory structure)
-    genisoimage -quiet -output "$img_dir/setup.iso" -volid "SETUP" -joliet -rock -graft-points \
+    genisoimage -quiet -output "$SETUP_ISO_PATH" -volid "SETUP" -joliet -rock -graft-points \
         /setup="$SETUP_ISO_DIR/setup" \
         /setupfiles="$SETUP_ISO_DIR/setupfiles"
 
     # Cleanup
     rm -rf "$SETUP_ISO_DIR"
 
-    echo_success "$img_dir/setup.iso created for '$img_name'"
+    echo_success "setup.iso created at $SETUP_ISO_PATH for '$img_name'"
 }
 
 # Launch QEMU with automatic setup
 run_qemu_setup() {
     local img_name="$1"
     local img_dir=$(get_image_dir "$img_name")
+
+    # Parse image name to get distro (for resolving persistent paths)
+    local parsed=$(parse_image_name "$img_name")
+    local DISTRO=$(echo "$parsed" | cut -d'|' -f1)
+    local DISTRO_DIR="images/$DISTRO"
 
     echo_step "Launching QEMU for automatic setup..."
     echo "  Image: $CURRENT_IMAGE"
@@ -943,6 +962,42 @@ run_qemu_setup() {
     echo_success "Distribution image resized successfully"
     echo ""
 
+    # Resolve paths for seed.img and setup.iso
+    # For dynamic images, these are stored in the distro directory (persistent across stages)
+    # For legacy images, they are in the image directory
+    local SEED_IMG_PATH=""
+    local SETUP_ISO_PATH=""
+
+    if [ "$BOOT_MODE" = "cloudinit" ]; then
+        # Determine seed.img path
+        if [ -f "$img_dir/cloudinit/seed.img" ]; then
+            # Legacy image
+            SEED_IMG_PATH="$img_dir/cloudinit/seed.img"
+        elif [ -f "$DISTRO_DIR/cloudinit/seed.img" ]; then
+            # Dynamic image - use distro's seed.img
+            SEED_IMG_PATH="$DISTRO_DIR/cloudinit/seed.img"
+        else
+            echo_error "seed.img not found!"
+            echo "  Checked: $img_dir/cloudinit/seed.img and $DISTRO_DIR/cloudinit/seed.img"
+            exit 1
+        fi
+        echo "  Using seed.img: $SEED_IMG_PATH"
+    fi
+
+    # Determine setup.iso path (for both modes)
+    # For dynamic images, setup.iso should be in distro directory
+    # For legacy images, it's in the image directory
+    if [ -f "$img_dir/setup.iso" ]; then
+        SETUP_ISO_PATH="$img_dir/setup.iso"
+    elif [ -f "$DISTRO_DIR/setup.iso" ]; then
+        SETUP_ISO_PATH="$DISTRO_DIR/setup.iso"
+    else
+        echo_error "setup.iso not found!"
+        echo "  Checked: $img_dir/setup.iso and $DISTRO_DIR/setup.iso"
+        exit 1
+    fi
+    echo "  Using setup.iso: $SETUP_ISO_PATH"
+
     # Launch QEMU with appropriate drives based on boot mode
     # Note: || true prevents script exit on QEMU errors (we only check /root/setup-completed)
     if [ "$BOOT_MODE" = "cloudinit" ]; then
@@ -954,8 +1009,8 @@ run_qemu_setup() {
             -smp "$QEMU_CPUS" \
             -bios "$UEFI_BIOS" \
             -drive file="$DISTRO_IMAGE",format=raw,if=virtio \
-            -drive file="$img_dir/cloudinit/seed.img",format=raw,if=virtio \
-            -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
+            -drive file="$SEED_IMG_PATH",format=raw,if=virtio \
+            -drive file="$SETUP_ISO_PATH",format=raw,if=virtio,readonly=on \
             -device virtio-net-pci,netdev=net0 \
             -netdev user,id=net0 \
             -nographic || true
@@ -968,7 +1023,7 @@ run_qemu_setup() {
             -smp "$QEMU_CPUS" \
             -bios "$UEFI_BIOS" \
             -drive file="$DISTRO_IMAGE",format=raw,if=virtio \
-            -drive file="$img_dir/setup.iso",format=raw,if=virtio,readonly=on \
+            -drive file="$SETUP_ISO_PATH",format=raw,if=virtio,readonly=on \
             -device virtio-net-pci,netdev=net0 \
             -netdev user,id=net0 \
             -nographic || true
