@@ -60,7 +60,8 @@ export default defineConfig({
 					label: 'Releases',
 					items: [
 						{ label: 'Stable Releases', link: '/releases' },
-						{ label: 'Pre-releases', link: '/pre-releases' },
+						{ label: 'Test Releases', link: '/test-releases' },
+						{ label: 'Preview Releases', link: '/preview-releases' },
 					],
 				},
 			],

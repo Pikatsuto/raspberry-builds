@@ -65,11 +65,13 @@ import { ref, onMounted, computed } from 'vue'
 interface Props {
   prerelease?: boolean
   limit?: number
+  branch?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   prerelease: false,
-  limit: 5
+  limit: 5,
+  branch: undefined
 })
 
 const releases = ref<any[]>([])
@@ -79,9 +81,18 @@ const error = ref<string | null>(null)
 const githubReleasesUrl = 'https://github.com/Pikatsuto/raspberry-builds/releases'
 
 const displayedReleases = computed(() => {
-  const filtered = releases.value.filter((r: any) =>
+  let filtered = releases.value.filter((r: any) =>
     props.prerelease ? r.prerelease : !r.prerelease
   )
+
+  // Filter by branch if specified
+  if (props.branch) {
+    filtered = filtered.filter((r: any) => {
+      // Check if tag name contains the branch name
+      return r.tag_name.toLowerCase().includes(props.branch!.toLowerCase())
+    })
+  }
+
   return filtered.slice(0, props.limit)
 })
 

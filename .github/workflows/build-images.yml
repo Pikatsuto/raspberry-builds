@@ -3,7 +3,9 @@ name: Build Raspberry Pi Images
 on:
   push:
     branches:
-      - '**'
+      - main
+      - test
+      - preview
     paths:
       - '.github/workflows/build-images.yml'
       - '.github/images.txt'
@@ -140,18 +142,21 @@ jobs:
 
           # For cron builds, use fixed daily tag
           if [ "${{ steps.build_type.outputs.type }}" = "cron" ]; then
-            RELEASE_TAG="daily-${RELEASE_DATE}"
-            RELEASE_NAME="Daily Build ${RELEASE_DATE}"
             if [ "$IS_PRERELEASE" = "true" ]; then
-              RELEASE_NAME="Daily Build ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+              RELEASE_TAG="daily-${RELEASE_DATE}-${{ github.ref_name }}"
+              RELEASE_NAME="Daily Build ${RELEASE_DATE} (${{ github.ref_name }})"
+            else
+              RELEASE_TAG="daily-${RELEASE_DATE}"
+              RELEASE_NAME="Daily Build ${RELEASE_DATE}"
             fi
           else
             # For push/manual builds, use timestamp tag
-            RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
             if [ "$IS_PRERELEASE" = "false" ]; then
+              RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
               RELEASE_NAME="Release ${RELEASE_DATE}"
             else
-              RELEASE_NAME="Pre-release ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+              RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}-${{ github.ref_name }}"
+              RELEASE_NAME="Pre-release ${RELEASE_DATE} (${{ github.ref_name }})"
             fi
           fi
 
@@ -197,7 +202,9 @@ jobs:
       - name: Create release body (push builds)
         if: steps.build_type.outputs.type == 'push'
         run: |
-          cat > release_body.md << 'EOF'
+          # Determine branch-specific header and warnings
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            cat > release_body.md << 'EOF'
           ## 🚀 Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
 
           Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
@@ -207,6 +214,48 @@ jobs:
           Images are being built and will be uploaded as they complete.
 
           EOF
+          elif [ "${{ github.ref_name }}" = "test" ]; then
+            cat > release_body.md << 'EOF'
+          ## 🧪 TEST BUILD - Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
+
+          > **⚠️ WARNING - TEST BUILD**
+          >
+          > These images are from the `test` branch and are for testing purposes only.
+          > **NO GUARANTEE of functionality is provided.**
+          >
+          > - Do not use in production
+          > - May contain critical bugs
+          > - May not boot properly
+          > - Use at your own risk
+          >
+          > For stable images, check releases from the `main` branch.
+
+          Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
+
+          ### 📦 Available Images
+
+          Images are being built and will be uploaded as they complete.
+
+          EOF
+          elif [ "${{ github.ref_name }}" = "preview" ]; then
+            cat > release_body.md << 'EOF'
+          ## 🔍 PREVIEW BUILD - Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
+
+          > **ℹ️ Preview Build**
+          >
+          > These images are from the `preview` branch and are preview versions.
+          > They may contain experimental or in-development features.
+          >
+          > Test at your own risk. For stable versions, check releases from the `main` branch.
+
+          Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
+
+          ### 📦 Available Images
+
+          Images are being built and will be uploaded as they complete.
+
+          EOF
+          fi
 
           # Add changelog if it exists
           if [ -f changelog.md ]; then

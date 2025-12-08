@@ -13,39 +13,40 @@ try {
   console.error('Failed to fetch releases at build time:', error);
 }
 
-// Filter pre-releases
-const preReleases = releases.filter((r: any) => r.prerelease).slice(0, 5);
+// Filter test branch pre-releases
+const testReleases = releases.filter((r: any) => r.prerelease && r.tag_name.toLowerCase().includes('test')).slice(0, 5);
 ---
 
 <StarlightPage
   frontmatter={{
-    title: 'Pre-releases',
-    description: 'Download development builds and pre-releases of Raspberry Pi hybrid images for testing',
+    title: 'Test Releases',
+    description: 'Download test builds from the test branch for early testing and feedback',
   }}
 >
   <div class="releases-intro">
     <p>
-      Pre-releases are development builds from non-main branches that may include experimental
-      features or be in testing. These builds are suitable for testing and development purposes
-      but should not be used in production environments.
+      Test releases are builds from the <strong>test</strong> branch that contain features
+      and changes currently in testing. These builds are suitable for early adopters who want
+      to test new features and provide feedback before they reach the preview or stable stage.
     </p>
 
     <div class="warning-box">
-      <strong>⚠️ Warning:</strong> Pre-releases may contain bugs or incomplete features.
-      Use at your own risk and consider using stable releases for production use.
+      <strong>⚠️ Warning:</strong> Test releases are experimental builds that may contain
+      bugs, incomplete features, or breaking changes. Use at your own risk and avoid using
+      in production environments.
     </div>
 
-    <h2>Available Pre-releases</h2>
+    <h2>Available Test Releases</h2>
     <p>
-      All images are compressed with PiShrink. Make sure to check the release notes
-      for known issues and testing instructions.
+      All images are compressed with PiShrink. Please report any issues you encounter to help
+      improve the quality of future releases.
     </p>
   </div>
 
   <!-- Static content for SEO -->
-  {preReleases.length > 0 && (
+  {testReleases.length > 0 && (
     <div class="seo-releases">
-      {preReleases.map((release: any) => (
+      {testReleases.map((release: any) => (
         <div>
           <h3>{release.tag_name} - {release.name}</h3>
           <p>Released: {new Date(release.published_at).toLocaleDateString()}</p>
@@ -65,7 +66,7 @@ const preReleases = releases.filter((r: any) => r.prerelease).slice(0, 5);
   )}
 
   <!-- Interactive component (client-side) -->
-  <ReleasesComponent client:load prerelease={true} limit={10} />
+  <ReleasesComponent client:load prerelease={true} branch="test" limit={10} />
 
   <div class="flash-instructions">
     <h2>Flash an Image</h2>
