@@ -49,10 +49,6 @@ export default defineConfig({
 					autogenerate: { directory: 'docs' },
 				},
 				{
-					label: 'Images',
-					autogenerate: { directory: 'images' },
-				},
-				{
 					label: 'Image Sources',
 					autogenerate: { directory: 'image-sources' },
 				},
