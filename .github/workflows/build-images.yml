@@ -3,7 +3,14 @@ name: Build Raspberry Pi Images
 on:
   push:
     branches:
-      - '**'
+      - main
+      - test
+      - preview
+    paths:
+      - '.github/workflows/build-images.yml'
+      - '.github/images.txt'
+      - 'images/**'
+      - 'bin/**'
   schedule:
     # Daily build at 2:00 AM UTC
     - cron: '0 2 * * *'
@@ -23,23 +30,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: List available images
+      - name: List available images from .github/images.txt
         id: list
         run: |
-          images=$(ls -d images/*/ | xargs -n 1 basename | jq -R -s -c 'split("\n")[:-1]')
+          # Read images from .github/images.txt, filter out comments and empty lines
+          images=$(grep -v '^#' .github/images.txt | grep -v '^$' | jq -R -s -c 'split("\n")[:-1]')
           echo "images=$images" >> $GITHUB_OUTPUT
-          echo "Detected images: $images"
+          echo "Images to build:"
+          grep -v '^#' .github/images.txt | grep -v '^$'
 
-  # Job 2: Stage 1 - Download and Prepare (parallel for all images)
-  stage1-download:
+  # Job 2: Stage 1+2 - Download and QEMU Setup (parallel for all images)
+  stage1-2-download-qemu:
     needs: detect-images
     runs-on: ubuntu-latest
     strategy:
       matrix:
         image: ${{ fromJson(needs.detect-images.outputs.images) }}
+      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+          echo "Artifact name: ${SANITIZED}"
 
       - name: Free disk space
         run: |
@@ -57,182 +75,50 @@ jobs:
           sudo apt install -y \
             wget \
             genisoimage \
-            xz-utils
-
-      - name: Stage 1 - Download and prepare for ${{ matrix.image }}
-        run: |
-          ./bin/autobuild --image ${{ matrix.image }} --stage 1
-
-      - name: Upload base images (cache)
-        uses: actions/upload-artifact@v5
-        with:
-          name: base-images-${{ matrix.image }}
-          path: |
-            *.img
-            *.raw
-            images/${{ matrix.image }}/cloudinit/seed.img
-            images/${{ matrix.image }}/setup.iso
-          retention-days: 1
-
-  # Job 3: Stage 2 - QEMU Setup (parallel for all images, most time-consuming)
-  stage2-qemu:
-    needs: [detect-images, stage1-download]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image: ${{ fromJson(needs.detect-images.outputs.images) }}
-      fail-fast: false
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install QEMU dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
+            xz-utils \
             qemu-system-aarch64 \
             qemu-utils \
             qemu-efi-aarch64
 
-      - name: Download base images from stage 1
-        uses: actions/download-artifact@v6
-        with:
-          name: base-images-${{ matrix.image }}
+      - name: Stage 1 - Download and prepare for ${{ matrix.image }}
+        run: |
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 1
 
       - name: Stage 2 - QEMU setup for ${{ matrix.image }}
         run: |
-          ./bin/autobuild --image ${{ matrix.image }} --stage 2
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 2
         timeout-minutes: 60
 
-      - name: Upload Debian image after QEMU
+      - name: Upload configured distro and RaspiOS images
         uses: actions/upload-artifact@v5
         with:
-          name: debian-configured-${{ matrix.image }}
+          name: images-ready-${{ steps.artifact.outputs.name }}
           path: |
-            debian-13-arm64.raw
+            *.img
+            distro-arm64.raw
           retention-days: 1
           compression-level: 0
 
-  # Job 4: Stage 3 - Build hybrid image (parallel for all images)
-  stage3-build:
-    needs: [detect-images, stage2-qemu]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image: ${{ fromJson(needs.detect-images.outputs.images) }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            parted \
-            e2fsprogs \
-            dosfstools \
-            rsync \
-            qemu-utils
-
-      - name: Enable loop devices
-        run: |
-          # Load loop module
-          sudo modprobe loop
-          # Check available loop devices
-          ls -la /dev/loop* || true
-
-      - name: Download RaspiOS image from stage 1
-        uses: actions/download-artifact@v6
-        with:
-          name: base-images-${{ matrix.image }}
-          pattern: '*.img'
-
-      - name: Download configured Debian image from stage 2
-        uses: actions/download-artifact@v6
-        with:
-          name: debian-configured-${{ matrix.image }}
-
-      - name: Stage 3 - Build hybrid image for ${{ matrix.image }}
-        run: |
-          ./bin/autobuild --image ${{ matrix.image }} --stage 3
-
-      - name: Upload hybrid image
-        uses: actions/upload-artifact@v5
-        with:
-          name: hybrid-image-${{ matrix.image }}
-          path: |
-            rpi-*.img
-          retention-days: 1
-          compression-level: 0
-
-  # Job 5: Stage 4 - Compress (parallel for all images)
-  stage4-compress:
-    needs: [detect-images, stage3-build]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image: ${{ fromJson(needs.detect-images.outputs.images) }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install PiShrink
-        run: |
-          wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
-          chmod +x pishrink.sh
-          sudo mv pishrink.sh /usr/local/bin/
-
-      - name: Download hybrid image from stage 3
-        uses: actions/download-artifact@v6
-        with:
-          name: hybrid-image-${{ matrix.image }}
-
-      - name: Stage 4 - Compress image for ${{ matrix.image }}
-        run: |
-          # Find the .img file for this image
-          IMAGE_FILE=$(ls rpi-*.img)
-          echo "Compressing $IMAGE_FILE"
-
-          # Compress with PiShrink
-          sudo pishrink.sh -aZ "$IMAGE_FILE"
-
-      - name: Upload compressed image
-        uses: actions/upload-artifact@v5
-        with:
-          name: final-image-${{ matrix.image }}
-          path: |
-            rpi-*.img.xz
-          retention-days: 7
-
-  # Job 6: Create Release
+  # Job 3: Create Release (runs in parallel with build stages)
   create-release:
-    needs: [detect-images, stage4-compress]
+    needs: detect-images
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.release_info.outputs.tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Fetch all history for changelog generation
 
-      - name: Download all compressed images
-        uses: actions/download-artifact@v6
-        with:
-          pattern: final-image-*
-          merge-multiple: true
-
-      - name: List built images
-        run: |
-          echo "Created images:"
-          ls -lh *.img.xz || true
-
       - name: Determine build type
         id: build_type
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "type=cron" >> $GITHUB_OUTPUT
-            echo "🕐 Cron build detected - will update existing release"
+            echo "🕐 Cron build detected - will create/update daily release"
           elif [ "${{ github.event_name }}" = "push" ]; then
             echo "type=push" >> $GITHUB_OUTPUT
             echo "📝 Push build detected - will create new release with changelog"
@@ -256,18 +142,21 @@ jobs:
 
           # For cron builds, use fixed daily tag
           if [ "${{ steps.build_type.outputs.type }}" = "cron" ]; then
-            RELEASE_TAG="daily-${RELEASE_DATE}"
-            RELEASE_NAME="Daily Build ${RELEASE_DATE}"
             if [ "$IS_PRERELEASE" = "true" ]; then
-              RELEASE_NAME="Daily Build ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+              RELEASE_TAG="daily-${RELEASE_DATE}-${{ github.ref_name }}"
+              RELEASE_NAME="Daily Build ${RELEASE_DATE} (${{ github.ref_name }})"
+            else
+              RELEASE_TAG="daily-${RELEASE_DATE}"
+              RELEASE_NAME="Daily Build ${RELEASE_DATE}"
             fi
           else
             # For push/manual builds, use timestamp tag
-            RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
             if [ "$IS_PRERELEASE" = "false" ]; then
+              RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}"
               RELEASE_NAME="Release ${RELEASE_DATE}"
             else
-              RELEASE_NAME="Pre-release ${RELEASE_DATE} (${GITHUB_REF_NAME})"
+              RELEASE_TAG="v${RELEASE_DATE}-${RELEASE_TIME}-${{ github.ref_name }}"
+              RELEASE_NAME="Pre-release ${RELEASE_DATE} (${{ github.ref_name }})"
             fi
           fi
 
@@ -313,16 +202,60 @@ jobs:
       - name: Create release body (push builds)
         if: steps.build_type.outputs.type == 'push'
         run: |
-          cat > release_body.md << 'EOF'
+          # Determine branch-specific header and warnings
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            cat > release_body.md << 'EOF'
           ## 🚀 Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
 
           Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
 
           ### 📦 Available Images
 
-          All images in this release are ready to flash to SD/SSD.
+          Images are being built and will be uploaded as they complete.
 
           EOF
+          elif [ "${{ github.ref_name }}" = "test" ]; then
+            cat > release_body.md << 'EOF'
+          ## 🧪 TEST BUILD - Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
+
+          > **⚠️ WARNING - TEST BUILD**
+          >
+          > These images are from the `test` branch and are for testing purposes only.
+          > **NO GUARANTEE of functionality is provided.**
+          >
+          > - Do not use in production
+          > - May contain critical bugs
+          > - May not boot properly
+          > - Use at your own risk
+          >
+          > For stable images, check releases from the `main` branch.
+
+          Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
+
+          ### 📦 Available Images
+
+          Images are being built and will be uploaded as they complete.
+
+          EOF
+          elif [ "${{ github.ref_name }}" = "preview" ]; then
+            cat > release_body.md << 'EOF'
+          ## 🔍 PREVIEW BUILD - Raspberry Pi Hybrid Images - ${{ steps.release_info.outputs.date }}
+
+          > **ℹ️ Preview Build**
+          >
+          > These images are from the `preview` branch and are preview versions.
+          > They may contain experimental or in-development features.
+          >
+          > Test at your own risk. For stable versions, check releases from the `main` branch.
+
+          Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
+
+          ### 📦 Available Images
+
+          Images are being built and will be uploaded as they complete.
+
+          EOF
+          fi
 
           # Add changelog if it exists
           if [ -f changelog.md ]; then
@@ -361,11 +294,11 @@ jobs:
 
           Raspberry Pi images with RaspiOS boot + Debian ARM64 rootfs.
 
-          **🕐 Last updated:** `${{ steps.release_info.outputs.date }}` at `${{ steps.release_info.outputs.time }}`
+          **🕐 Build started:** `${{ steps.release_info.outputs.date }}` at `${{ steps.release_info.outputs.time }}`
 
           ### 📦 Available Images
 
-          All images in this release are ready to flash to SD/SSD.
+          Images are being built and will be uploaded as they complete.
 
           ### 📝 Flash an Image
 
@@ -389,51 +322,19 @@ jobs:
           See [README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md) for more information.
           EOF
 
-      - name: Update existing release (cron builds)
+      - name: Delete existing release if exists (cron builds)
         if: steps.build_type.outputs.type == 'cron'
         run: |
-          # Check if release exists
+          # Delete existing release if it exists
           if gh release view ${{ steps.release_info.outputs.tag }} >/dev/null 2>&1; then
-            echo "Release ${{ steps.release_info.outputs.tag }} exists, updating..."
-
-            # Delete old assets
-            echo "Deleting old assets..."
-            gh release view ${{ steps.release_info.outputs.tag }} --json assets --jq '.assets[].name' | while read asset; do
-              echo "Deleting $asset"
-              gh release delete-asset ${{ steps.release_info.outputs.tag }} "$asset" --yes || true
-            done
-
-            # Upload new assets
-            echo "Uploading new assets..."
-            gh release upload ${{ steps.release_info.outputs.tag }} *.img.xz --clobber
-
-            # Update release notes
-            echo "Updating release notes..."
-            gh release edit ${{ steps.release_info.outputs.tag }} \
-              --notes-file release_body.md \
-              --title "${{ steps.release_info.outputs.name }}"
-
-            echo "✅ Release ${{ steps.release_info.outputs.tag }} updated successfully"
-          else
-            echo "Release ${{ steps.release_info.outputs.tag }} does not exist, creating..."
-            PRERELEASE_FLAG=""
-            if [ "${{ steps.release_info.outputs.prerelease }}" = "true" ]; then
-              PRERELEASE_FLAG="--prerelease"
-            fi
-
-            gh release create ${{ steps.release_info.outputs.tag }} \
-              --title "${{ steps.release_info.outputs.name }}" \
-              --notes-file release_body.md \
-              $PRERELEASE_FLAG \
-              *.img.xz
-
-            echo "✅ Release ${{ steps.release_info.outputs.tag }} created successfully"
+            echo "Deleting existing release ${{ steps.release_info.outputs.tag }}..."
+            gh release delete ${{ steps.release_info.outputs.tag }} --yes
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create new release (push/manual builds)
-        if: steps.build_type.outputs.type != 'cron'
+      - name: Create release
+        id: create_release
         run: |
           PRERELEASE_FLAG=""
           if [ "${{ steps.release_info.outputs.prerelease }}" = "true" ]; then
@@ -443,16 +344,163 @@ jobs:
           gh release create ${{ steps.release_info.outputs.tag }} \
             --title "${{ steps.release_info.outputs.name }}" \
             --notes-file release_body.md \
-            $PRERELEASE_FLAG \
-            *.img.xz
+            $PRERELEASE_FLAG
 
           echo "✅ Release ${{ steps.release_info.outputs.tag }} created successfully"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
+  # Job 4: Stage 3 - Build hybrid image (parallel for all images)
+  stage3-build:
+    needs: [detect-images, stage1-2-download-qemu]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect-images.outputs.images) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            parted \
+            e2fsprogs \
+            dosfstools \
+            rsync \
+            qemu-utils
+
+      - name: Enable loop devices
+        run: |
+          # Load loop module
+          sudo modprobe loop
+          # Check available loop devices
+          ls -la /dev/loop* || true
+
+      - name: Download images from stage 1+2
+        uses: actions/download-artifact@v6
+        with:
+          name: images-ready-${{ steps.artifact.outputs.name }}
+
+      - name: Stage 3 - Build hybrid image for ${{ matrix.image }}
+        run: |
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 3
+
+      - name: Upload hybrid image
+        uses: actions/upload-artifact@v5
+        with:
+          name: hybrid-image-${{ steps.artifact.outputs.name }}
+          path: |
+            *.img
+            !*raspios*.img
+          retention-days: 1
+          compression-level: 0
+
+  # Job 5: Stage 4 - Compress and Upload (parallel for all images)
+  stage4-compress:
+    needs: [detect-images, stage3-build, create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect-images.outputs.images) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Generate sanitized artifact name
+        id: artifact
+        run: |
+          # Replace / and + with - for artifact names
+          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+
+      - name: Install PiShrink
+        run: |
+          wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
+          chmod +x pishrink.sh
+          sudo mv pishrink.sh /usr/local/bin/
+
+      - name: Download hybrid image from stage 3
+        uses: actions/download-artifact@v6
+        with:
+          name: hybrid-image-${{ steps.artifact.outputs.name }}
+
+      - name: Stage 4 - Compress image for ${{ matrix.image }}
+        run: |
+          # Find the .img file (should be only one after stage 3 filtering)
+          IMAGE_FILE=$(ls *.img 2>/dev/null | head -1)
+
+          if [ -z "$IMAGE_FILE" ]; then
+            echo "ERROR: No .img file found!"
+            ls -la
+            exit 1
+          fi
+
+          echo "Found image: $IMAGE_FILE"
+          echo "Compressing $IMAGE_FILE with PiShrink..."
+
+          # Compress with PiShrink
+          sudo pishrink.sh -aZ "$IMAGE_FILE"
+
+          echo "Compression complete. Output:"
+          ls -lh *.img.xz
+
+      - name: Upload to release
+        run: |
+          # Upload compressed image to release
+          gh release upload ${{ needs.create-release.outputs.tag }} *.img.xz --clobber
+          echo "✅ Uploaded $(ls *.img.xz) to release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Cleanup
         if: always()
         run: |
           # Clean up large files
-          sudo rm -f *.img *.img.xz *.raw *.iso
+          sudo rm -f *.img *.img.xz
           df -h
+
+  # Job 6: Cleanup empty release (runs after all builds complete or fail)
+  cleanup-release:
+    needs: [create-release, stage4-compress]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check release and delete if empty
+        run: |
+          RELEASE_TAG="${{ needs.create-release.outputs.tag }}"
+
+          echo "Checking release $RELEASE_TAG for assets..."
+
+          # Get asset count from release
+          ASSET_COUNT=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
+
+          echo "Release has $ASSET_COUNT asset(s)"
+
+          if [ "$ASSET_COUNT" -eq 0 ]; then
+            echo "⚠️ Release $RELEASE_TAG is empty (no assets uploaded)"
+            echo "Deleting empty release..."
+            gh release delete "$RELEASE_TAG" --yes
+            echo "✅ Empty release deleted successfully"
+          else
+            echo "✅ Release $RELEASE_TAG has $ASSET_COUNT asset(s), keeping it"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

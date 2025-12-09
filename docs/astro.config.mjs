@@ -49,10 +49,6 @@ export default defineConfig({
 					autogenerate: { directory: 'docs' },
 				},
 				{
-					label: 'Images',
-					autogenerate: { directory: 'images' },
-				},
-				{
 					label: 'Image Sources',
 					autogenerate: { directory: 'image-sources' },
 				},
@@ -60,7 +56,8 @@ export default defineConfig({
 					label: 'Releases',
 					items: [
 						{ label: 'Stable Releases', link: '/releases' },
-						{ label: 'Pre-releases', link: '/pre-releases' },
+						{ label: 'Test Releases', link: '/test-releases' },
+						{ label: 'Preview Releases', link: '/preview-releases' },
 					],
 				},
 			],

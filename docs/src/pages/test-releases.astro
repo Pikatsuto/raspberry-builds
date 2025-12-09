@@ -1,0 +1,133 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import ReleasesComponent from '../components/ReleasesComponent.vue';
+
+// Fetch pre-releases at build time for SEO
+let releases: any[] = [];
+try {
+  const response = await fetch('https://api.github.com/repos/Pikatsuto/raspberry-builds/releases');
+  if (response.ok) {
+    releases = await response.json();
+  }
+} catch (error) {
+  console.error('Failed to fetch releases at build time:', error);
+}
+
+// Filter test branch pre-releases
+const testReleases = releases.filter((r: any) => r.prerelease && r.tag_name.toLowerCase().includes('test')).slice(0, 5);
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Test Releases',
+    description: 'Download test builds from the test branch for early testing and feedback',
+  }}
+>
+  <div class="releases-intro">
+    <p>
+      Test releases are builds from the <strong>test</strong> branch that contain features
+      and changes currently in testing. These builds are suitable for early adopters who want
+      to test new features and provide feedback before they reach the preview or stable stage.
+    </p>
+
+    <div class="warning-box">
+      <strong>⚠️ Warning:</strong> Test releases are experimental builds that may contain
+      bugs, incomplete features, or breaking changes. Use at your own risk and avoid using
+      in production environments.
+    </div>
+
+    <h2>Available Test Releases</h2>
+    <p>
+      All images are compressed with PiShrink. Please report any issues you encounter to help
+      improve the quality of future releases.
+    </p>
+  </div>
+
+  <!-- Static content for SEO -->
+  {testReleases.length > 0 && (
+    <div class="seo-releases">
+      {testReleases.map((release: any) => (
+        <div>
+          <h3>{release.tag_name} - {release.name}</h3>
+          <p>Released: {new Date(release.published_at).toLocaleDateString()}</p>
+          {release.assets && release.assets.length > 0 && (
+            <ul>
+              {release.assets.map((asset: any) => (
+                <li>
+                  <a href={asset.browser_download_url}>{asset.name}</a>
+                  ({(asset.size / 1024 / 1024).toFixed(2)} MB)
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+
+  <!-- Interactive component (client-side) -->
+  <ReleasesComponent client:load prerelease={true} branch="test" limit={10} />
+
+  <div class="flash-instructions">
+    <h2>Flash an Image</h2>
+    <pre><code># Decompress and flash
+xz -dc rpi-*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+sync</code></pre>
+    <p><strong>⚠️ Replace <code>/dev/sdX</code> with your device!</strong></p>
+  </div>
+
+  <div class="github-link">
+    <a href="https://github.com/Pikatsuto/raspberry-builds/releases" target="_blank" rel="noopener noreferrer">
+      View all releases on GitHub →
+    </a>
+  </div>
+</StarlightPage>
+
+<style>
+  .releases-intro {
+    margin-bottom: 2rem;
+  }
+
+  .warning-box {
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    background: var(--sl-color-orange-high);
+    color: var(--sl-color-orange-low);
+    border-radius: 0.5rem;
+    border-left: 4px solid var(--sl-color-orange);
+  }
+
+  .seo-releases {
+    display: none; /* Hidden from view but crawlable by search engines */
+  }
+
+  .flash-instructions {
+    margin-top: 3rem;
+    padding: 1.5rem;
+    background: var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+  }
+
+  .flash-instructions h2 {
+    margin-top: 0;
+  }
+
+  .flash-instructions pre {
+    margin: 1rem 0;
+  }
+
+  .github-link {
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  .github-link a {
+    color: var(--sl-color-accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .github-link a:hover {
+    text-decoration: underline;
+  }
+</style>

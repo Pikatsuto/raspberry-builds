@@ -1,0 +1,17 @@
+# List of images to build in GitHub Actions
+# Format: One image per line
+# Supports both legacy (physical directories) and dynamic (distro/service1+service2) formats
+#
+# Examples:
+#   debian                                    # Base debian image
+#   debian/qemu+haos                          # Debian with qemu and haos services
+#   raspivirt-qemu+haos+docker+hotspot+openwrt  # Custom name with multiple services
+#
+# Legacy images (physical directories):
+# debian-old
+
+# Dynamic service-based images:
+debian
+debian/qemu+docker
+debian/qemu+openwrt+hotspot
+debian/qemu+docker+openwrt+hotspot+haos

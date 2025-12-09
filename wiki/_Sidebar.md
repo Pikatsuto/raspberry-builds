@@ -1,26 +1,32 @@
-## Navigation
+## Raspberry Pi Image Builder
 
-**Getting Started**
-- [Home](Home)
-- [Quick Start](Home#quick-start)
+**[Home](Home)**
 
-**Documentation**
-- [GitHub Actions](GitHub-Actions)
-- [Build Process](GitHub-Actions#build-architecture)
+### Getting Started
+- [Installation & First Build](Getting-Started)
+- [Architecture Overview](Architecture)
 
-**Images**
-- [RaspiVirt-Incus](Image-RaspiVirt-Incus)
-- [RaspiVirt-Incus+Docker](Image-RaspiVirt-Incus-Docker)
-- [RaspiVirt-Incus+HAOS](Image-RaspiVirt-Incus-HAOS)
+### Build System
+- [Build System Guide](Build-System)
+- [Service System](Services)
+- [GitHub Actions CI/CD](GitHub-Actions)
 
-**Resources**
-- [Main README](https://github.com/Pikatsuto/raspberry-builds/blob/main/README.md)
-- [Releases](https://github.com/Pikatsuto/raspberry-builds/releases)
+### Reference
+- [Available Images](Available-Images)
+- [Available Services](Available-Services)
+- [Hardware Detection](Hardware-Detection)
+- [Command Reference](Command-Reference)
+- [Configuration Reference](Configuration-Reference)
+
+### Advanced
+- [Creating Custom Images](Custom-Images)
+- [Creating Custom Services](Custom-Services)
+
+### Help
+- [FAQ](FAQ)
+- [Troubleshooting](Troubleshooting)
+
+### Links
+- [GitHub Repository](https://github.com/Pikatsuto/raspberry-builds)
 - [Issues](https://github.com/Pikatsuto/raspberry-builds/issues)
-
----
-
-**Quick Links**
-- [Download Images](https://github.com/Pikatsuto/raspberry-builds/releases)
-- [Report Bug](https://github.com/Pikatsuto/raspberry-builds/issues/new)
-- [GitHub Actions](https://github.com/Pikatsuto/raspberry-builds/actions)
+- [Discussions](https://github.com/Pikatsuto/raspberry-builds/discussions)

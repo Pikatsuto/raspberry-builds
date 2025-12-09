@@ -45,7 +45,7 @@ The project supports multiple image configurations. Each image is defined in `im
 Each image directory contains:
 - `config.sh` - Build configuration (OUTPUT_IMAGE, IMAGE_SIZE, QEMU_RAM, QEMU_CPUS, DESCRIPTION)
 - `setup.sh` - Setup script executed in QEMU during build
-- `setupfiles/` - Files copied to `/root/setupfiles/` in the final image
+- `setupfiles/` - Files copied to `/etc/setupfiles/` in the final image
 - `cloudinit/` OR `first-boot/` - Boot configuration (choose one):
   - `cloudinit/` - Cloud-init mode (user-data, meta-data, seed.img auto-generated)
   - `first-boot/` - First-boot service mode (setup-runner.sh, setup-runner.service)

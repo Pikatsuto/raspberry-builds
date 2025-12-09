@@ -75,7 +75,7 @@ function fixMarkdownLinks(content) {
   fixed = fixed.replace(/\[\[([^\]]+)\]\]/g, (_, pageName) => {
     const slug = pageName.replace(/\s+/g, '-').toLowerCase()
     const cat = pageName.startsWith('Image-') ? 'images' : 'docs'
-    return `[${pageName}](/raspberry-builds/${cat}/${slug}/)`
+    return `[${pageName}](/raspberry-builds/${cat}/${slug})`
   })
 
   // Fix relative wiki links: [text](Page-Name) -> [text](/raspberry-builds/docs/page-name/)
@@ -88,7 +88,7 @@ function fixMarkdownLinks(content) {
     }
     const cleanLink = link.replace(/\.md$/, '').toLowerCase()
     const cat = link.startsWith('Image-') ? 'images' : 'docs'
-    return `[${text}](/raspberry-builds/${cat}/${cleanLink}/)`
+    return `[${text}](/raspberry-builds/${cat}/${cleanLink})`
   })
 
   return fixed
