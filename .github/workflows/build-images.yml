@@ -89,12 +89,30 @@ jobs:
           ./bin/autobuild --image "${{ matrix.image }}" --stage 2
         timeout-minutes: 60
 
+      - name: Clean up unnecessary files before upload
+        run: |
+          # Keep only the files needed for stage 3
+          echo "Files before cleanup:"
+          ls -lh *.img *.raw 2>/dev/null || true
+
+          # Remove setup.iso if it exists (not needed after stage 2)
+          rm -f setup.iso
+
+          # Remove downloaded distribution image (already copied to distro-arm64.raw)
+          # Keep only RaspiOS .img and distro-arm64.raw
+          find . -maxdepth 1 -name "*.raw" ! -name "distro-arm64.raw" -delete
+          find . -maxdepth 1 -name "*.qcow2" -delete
+
+          echo ""
+          echo "Files after cleanup (ready for upload):"
+          ls -lh *.img distro-arm64.raw 2>/dev/null || true
+
       - name: Upload configured distro and RaspiOS images
         uses: actions/upload-artifact@v5
         with:
           name: images-ready-${{ steps.artifact.outputs.name }}
           path: |
-            *.img
+            *raspios*.img
             distro-arm64.raw
           retention-days: 1
           compression-level: 0
@@ -350,64 +368,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Job 4: Stage 3 - Build hybrid image (parallel for all images)
-  stage3-build:
-    needs: [detect-images, stage1-2-download-qemu]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image: ${{ fromJson(needs.detect-images.outputs.images) }}
-      fail-fast: false
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Generate sanitized artifact name
-        id: artifact
-        run: |
-          # Replace / and + with - for artifact names
-          SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
-          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
-
-      - name: Install build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            parted \
-            e2fsprogs \
-            dosfstools \
-            rsync \
-            qemu-utils
-
-      - name: Enable loop devices
-        run: |
-          # Load loop module
-          sudo modprobe loop
-          # Check available loop devices
-          ls -la /dev/loop* || true
-
-      - name: Download images from stage 1+2
-        uses: actions/download-artifact@v6
-        with:
-          name: images-ready-${{ steps.artifact.outputs.name }}
-
-      - name: Stage 3 - Build hybrid image for ${{ matrix.image }}
-        run: |
-          ./bin/autobuild --image "${{ matrix.image }}" --stage 3
-
-      - name: Upload hybrid image
-        uses: actions/upload-artifact@v5
-        with:
-          name: hybrid-image-${{ steps.artifact.outputs.name }}
-          path: |
-            *.img
-            !*raspios*.img
-          retention-days: 1
-          compression-level: 0
-
-  # Job 5: Stage 4 - Compress and Upload (parallel for all images)
-  stage4-compress:
-    needs: [detect-images, stage3-build, create-release]
+  # Job 4: Stage 3+4 - Build hybrid image, compress and upload (parallel for all images)
+  stage3-4-build-compress:
+    needs: [detect-images, stage1-2-download-qemu, create-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -426,24 +389,45 @@ jobs:
           SANITIZED=$(echo "${{ matrix.image }}" | tr '/+' '--')
           echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
 
+      - name: Install build and compression dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            parted \
+            e2fsprogs \
+            dosfstools \
+            rsync \
+            qemu-utils
+
       - name: Install PiShrink
         run: |
           wget -q https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
           chmod +x pishrink.sh
           sudo mv pishrink.sh /usr/local/bin/
 
-      - name: Download hybrid image from stage 3
+      - name: Enable loop devices
+        run: |
+          # Load loop module
+          sudo modprobe loop
+          # Check available loop devices
+          ls -la /dev/loop* || true
+
+      - name: Download images from stage 1+2
         uses: actions/download-artifact@v6
         with:
-          name: hybrid-image-${{ steps.artifact.outputs.name }}
+          name: images-ready-${{ steps.artifact.outputs.name }}
+
+      - name: Stage 3 - Build hybrid image for ${{ matrix.image }}
+        run: |
+          ./bin/autobuild --image "${{ matrix.image }}" --stage 3
 
       - name: Stage 4 - Compress image for ${{ matrix.image }}
         run: |
-          # Find the .img file (should be only one after stage 3 filtering)
-          IMAGE_FILE=$(ls *.img 2>/dev/null | head -1)
+          # Find the hybrid .img file (exclude RaspiOS images)
+          IMAGE_FILE=$(ls *.img 2>/dev/null | grep -v raspios | head -1)
 
           if [ -z "$IMAGE_FILE" ]; then
-            echo "ERROR: No .img file found!"
+            echo "ERROR: No hybrid .img file found!"
             ls -la
             exit 1
           fi
@@ -469,12 +453,12 @@ jobs:
         if: always()
         run: |
           # Clean up large files
-          sudo rm -f *.img *.img.xz
+          sudo rm -f *.img *.img.xz *.raw
           df -h
 
-  # Job 6: Cleanup empty release (runs after all builds complete or fail)
+  # Job 5: Cleanup empty release (runs after all builds complete or fail)
   cleanup-release:
-    needs: [create-release, stage4-compress]
+    needs: [create-release, stage3-4-build-compress]
     if: always()
     runs-on: ubuntu-latest
     permissions:
