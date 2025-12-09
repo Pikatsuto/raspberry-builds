@@ -72,6 +72,19 @@ apt install -y \
     linux-headers-rpi-2712 \
     raspi-firmware \
     firmware-brcm80211
+
+# Install WiFi USB drivers (Debian repository)
+echo "[BASE] Installing WiFi USB drivers..."
+apt install -y \
+    firmware-realtek \
+    firmware-ralink \
+    firmware-atheros \
+    firmware-misc-nonfree \
+    firmware-iwlwifi \
+    wpasupplicant \
+    wireless-tools \
+    iw
+
 apt upgrade -y
 
 # System configuration
