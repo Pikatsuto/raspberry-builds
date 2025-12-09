@@ -68,9 +68,9 @@ fi
 echo "Detected DNS domain: $DNS_DOMAIN" >&2
 
 # Build content
-CONTENT="========================================
+CONTENT="================================================
   Raspberry Pi - Debian ARM
-========================================
+================================================
   Hostname: $HOSTNAME
 
   IP Addresses:
@@ -257,7 +257,7 @@ if [ -n "$SERVICES_CONTENT" ]; then
 $SERVICES_CONTENT"
 fi
 
-CONTENT+="========================================
+CONTENT+="================================================
 "
 
 # Write to both /etc/issue (login screen) and /etc/motd (after login)
