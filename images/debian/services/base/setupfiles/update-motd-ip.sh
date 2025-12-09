@@ -136,7 +136,14 @@ if [ -d "$MOTD_CONFIGS_DIR" ]; then
                 SERVICE_IP=$(echo $(incus list "$VM_NAME" --format csv --columns 4 2>/dev/null | xargs -0 | cut -d' ' -f1 | sed 's|"||g') | cut -d ' ' -f 1)
 
                 # Get hostname from VM/container
-                SERVICE_HOSTNAME=$(incus exec "$VM_NAME" -- hostname 2>/dev/null || echo "$VM_NAME")
+                SERVICE_HOSTNAME=$(
+                    incus exec "$VM_NAME" -- hostname 2>/dev/null \
+                    || getent hosts "$SERVICE_IP" | xargs | cut -d " " -f 2
+                )
+
+                if [ -z "$SERVICE_HOSTNAME" ]; then
+                    SERVICE_HOSTNAME="$VM_NAME"
+                fi
             fi
         fi
 
@@ -222,6 +229,9 @@ if [ -d "$MOTD_CONFIGS_DIR" ]; then
                 continue
             fi
         fi
+
+        # Convert hostname to lowercase
+        SERVICE_HOSTNAME=$(echo -n "$SERVICE_HOSTNAME" | tr '[:upper:]' '[:lower:]')
 
         # Build URL
         URL_HOSTNAME="${PROTOCOL}://${SERVICE_HOSTNAME}.${DNS_DOMAIN}"
