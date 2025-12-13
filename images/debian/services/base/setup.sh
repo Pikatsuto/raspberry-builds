@@ -62,6 +62,16 @@ Pin: release o=Debian
 Pin-Priority: 500
 EOF
 
+# Enable non-free repositories for WiFi firmware
+echo "[BASE] Enabling non-free repositories for WiFi firmware..."
+cat > /etc/apt/sources.list.d/debian-non-free.sources << 'EOF'
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie trixie-backports
+Components: main non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+
 # Install RaspiOS packages
 apt update
 apt install -y raspberrypi-archive-keyring --reinstall
