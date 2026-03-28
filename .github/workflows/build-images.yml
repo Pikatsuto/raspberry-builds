@@ -87,7 +87,7 @@ jobs:
         timeout-minutes: 60
 
       - name: Upload configured distro and RaspiOS images
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: images-ready-${{ steps.artifact.outputs.name }}
           path: |
@@ -393,7 +393,7 @@ jobs:
           ./bin/autobuild --image "${{ matrix.image }}" --stage 3
 
       - name: Upload hybrid image
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: hybrid-image-${{ steps.artifact.outputs.name }}
           path: |
