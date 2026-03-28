@@ -68,9 +68,9 @@ fi
 echo "Detected DNS domain: $DNS_DOMAIN" >&2
 
 # Build content
-CONTENT="========================================
+CONTENT="================================================
   Raspberry Pi - Debian ARM
-========================================
+================================================
   Hostname: $HOSTNAME
 
   IP Addresses:
@@ -136,7 +136,14 @@ if [ -d "$MOTD_CONFIGS_DIR" ]; then
                 SERVICE_IP=$(echo $(incus list "$VM_NAME" --format csv --columns 4 2>/dev/null | xargs -0 | cut -d' ' -f1 | sed 's|"||g') | cut -d ' ' -f 1)
 
                 # Get hostname from VM/container
-                SERVICE_HOSTNAME=$(incus exec "$VM_NAME" -- hostname 2>/dev/null || echo "$VM_NAME")
+                SERVICE_HOSTNAME=$(
+                    incus exec "$VM_NAME" -- hostname 2>/dev/null \
+                    || getent hosts "$SERVICE_IP" | xargs | cut -d " " -f 2
+                )
+
+                if [ -z "$SERVICE_HOSTNAME" ]; then
+                    SERVICE_HOSTNAME="$VM_NAME"
+                fi
             fi
         fi
 
@@ -223,6 +230,9 @@ if [ -d "$MOTD_CONFIGS_DIR" ]; then
             fi
         fi
 
+        # Convert hostname to lowercase
+        SERVICE_HOSTNAME=$(echo -n "$SERVICE_HOSTNAME" | tr '[:upper:]' '[:lower:]')
+
         # Build URL
         URL_HOSTNAME="${PROTOCOL}://${SERVICE_HOSTNAME}.${DNS_DOMAIN}"
         URL_IP="${PROTOCOL}://${SERVICE_IP}"
@@ -247,7 +257,7 @@ if [ -n "$SERVICES_CONTENT" ]; then
 $SERVICES_CONTENT"
 fi
 
-CONTENT+="========================================
+CONTENT+="================================================
 "
 
 # Write to both /etc/issue (login screen) and /etc/motd (after login)
