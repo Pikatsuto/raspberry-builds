@@ -11,9 +11,6 @@ on:
       - '.github/images.txt'
       - 'images/**'
       - 'bin/**'
-  schedule:
-    # Daily build at 2:00 AM UTC
-    - cron: '0 2 * * *'
   workflow_dispatch:
     # Allows manual trigger
 
@@ -108,7 +105,7 @@ jobs:
           ls -lh *.img distro-arm64.raw 2>/dev/null || true
 
       - name: Upload configured distro and RaspiOS images
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: images-ready-${{ steps.artifact.outputs.name }}
           path: |
@@ -413,7 +410,7 @@ jobs:
           ls -la /dev/loop* || true
 
       - name: Download images from stage 1+2
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: images-ready-${{ steps.artifact.outputs.name }}
 
