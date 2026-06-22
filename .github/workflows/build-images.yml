@@ -25,7 +25,7 @@ jobs:
       images: ${{ steps.list.outputs.images }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: List available images from .github/images.txt
         id: list
@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Generate sanitized artifact name
         id: artifact
@@ -124,7 +124,7 @@ jobs:
       tag: ${{ steps.release_info.outputs.tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Fetch all history for changelog generation
 
@@ -377,7 +377,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Generate sanitized artifact name
         id: artifact
@@ -462,7 +462,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check release and delete if empty
         run: |
